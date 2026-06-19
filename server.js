@@ -20,9 +20,19 @@ app.post('/api/login', (req, res) => {
     return res.status(401).json({ success: false, message: 'یوزەرنەیم یان پاسوۆرد هەڵەیە' });
 });
 
-// سیستمی پاراستنی فایلەکان (بەشێوەیەکی کاتی ڕاگیراوە بۆ گووگڵ)
+// سیستمی پاراستنی فایلەکان
 app.use((req, res, next) => {
-    // بۆ ئێستا ڕێگە بە هەمووان دەدەین بێنە ژوورەوە بۆ ئەوەی گووگڵ قبوڵی بکات
+    // ئەگەر دەچێتە سەر پەڕەی لۆگین، ڕێگەی پێ بدە
+    if (req.path === '/login.html' || req.path.startsWith('/api/') || req.path.endsWith('.css') || req.path.endsWith('.js') || req.path.includes('font') || req.path.includes('logo')) {
+        return next();
+    }
+    
+    // ئەگەر کۆکی نەبوو، بینێرە بۆ پەڕەی لۆگین
+    if (req.cookies.auth_token !== 'logged_in_secret_key') {
+        return res.redirect('/login.html');
+    }
+    
+    // ئەگەر کێشەی نەبوو با بڕواتە ناو ماڵپەڕەکە
     next();
 });
 
