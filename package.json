@@ -1,0 +1,14 @@
+{
+  "name": "crypto-live-chart-proto",
+  "version": "1.0.0",
+  "description": "Public Crypto Chart Prototype",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^4.18.2",
+    "ws": "^8.13.0"
+  }
+}

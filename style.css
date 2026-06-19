@@ -1,0 +1,347 @@
+:root {
+    --bg-body: #08090f;
+    --text-main: #ffffff;
+    --bg-panel: #131722;
+    --border-color: #2a2e39;
+    --bg-input: #131722;
+    --text-muted: #848e9c;
+    --bg-card: #1e222d;
+}
+
+body.light-mode {
+    --bg-body: #f0f2f5;
+    --text-main: #131722;
+    --bg-panel: #ffffff;
+    --border-color: #e0e3eb;
+    --bg-input: #ffffff;
+    --text-muted: #434651;
+    --bg-card: #f8f9fa;
+}
+
+body {
+    font-family: 'Vazirmatn', 'Outfit', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    color: #2962ff;
+    font-size: 2rem;
+    margin-top: 0;
+    text-align: center;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 1rem;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.search-box {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 30px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 15px 25px;
+    border-radius: 0 12px 12px 0;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-input);
+    color: var(--text-main);
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.search-box input:focus {
+    border-color: #2962ff;
+    box-shadow: 0 0 10px rgba(41, 98, 255, 0.25);
+}
+
+.search-box button {
+    padding: 15px 35px;
+    border-radius: 12px 0 0 12px;
+    border: none;
+    background-color: #2962ff;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.search-box button:hover {
+    background-color: #1952e5;
+    box-shadow: 0 0 15px rgba(41, 98, 255, 0.3);
+}
+
+.main-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr 320px;
+    gap: 15px;
+    align-items: start;
+    margin-bottom: 20px;
+}
+
+.chart-container {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column; /* Stack charts vertically */
+    justify-content: center;
+    align-items: stretch; /* Make charts fill the width */
+    position: sticky;
+    top: 20px;
+    align-self: start;
+}
+
+/* ستایلی ئیندیکەیتەری سەر چارت */
+.chart-signal-overlay {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.4rem;
+    z-index: 10;
+    display: none;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    animation: pulse 2s infinite;
+    border: 2px solid rgba(255,255,255,0.2);
+}
+
+/* دروستکردنی ناوچەی کڕین و فرۆشتن لەسەر چارتەکە */
+.trading-zone {
+    position: absolute;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 100px;
+    z-index: 2;
+    display: none;
+    pointer-events: none; /* بۆ ئەوەی ڕێگری لە کلیک کردنی ناو چارتەکە نەکات */
+}
+
+.security-item {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.safe { color: #00c853; }
+.unsafe { color: #ff5252; }
+
+.buy-zone {
+    bottom: 0;
+    background: linear-gradient(to top, rgba(0, 200, 83, 0.2), transparent);
+}
+
+.sell-zone {
+    top: 0;
+    background: linear-gradient(to bottom, rgba(255, 82, 82, 0.2), transparent);
+}
+
+.price-line-indicator {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    z-index: 5;
+    display: none;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+#chartFrame {
+    width: 100%;
+    height: 100%;
+}
+
+/* نامەی ڕوونکرنەوە لە ناو چارتەکە پێش گەڕان */
+.placeholder-text {
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    text-align: center;
+}
+
+.side-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.side-panel {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.side-panel:hover {
+    transform: translateY(-2px);
+    border-color: rgba(41, 98, 255, 0.3);
+    box-shadow: 0px 12px 32px rgba(41, 98, 255, 0.12);
+}
+
+.signal-card {
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+    border-right: 5px solid #2962ff;
+}
+.buy { border-right-color: #00c853; color: #00c853; }
+.sell { border-right-color: #ff5252; color: #ff5252; }
+.warning { border-right-color: #ff9800; color: #ff9800; }
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+.stat-visual {
+    margin-top: 15px;
+    padding: 0 5px;
+}
+.stat-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+    color: var(--text-muted);
+}
+.progress-bg {
+    background: var(--border-color);
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2962ff, #00c853);
+    width: 0%;
+    transition: width 1s ease-in-out;
+}
+
+.panel-header {
+    padding: 10px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: bold;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.theme-btn {
+    position: absolute;
+    left: 20px;
+    top: 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.3s;
+}
+.theme-btn:hover { background: var(--bg-card); }
+
+/* شاردنەوەی دوگمەکانی سەرەوە و خوارەوە (Arrows) ئەگەر هەر خانەیەکی ژمارە بەکارهات */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+}
+input[type=number] {
+    -moz-appearance: textfield;
+}
+
+@media (max-width: 900px) {
+    .main-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .chart-container {
+        height: auto;
+        position: static;
+    }
+}
+
+.tf-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Outfit', 'Vazirmatn', sans-serif;
+    outline: none;
+}
+.tf-btn:hover {
+    color: var(--text-main);
+    border-color: var(--text-muted);
+    background: rgba(255,255,255,0.05);
+}
+.tf-btn.active {
+    background: #2962ff;
+    color: white;
+    border-color: #2962ff;
+    box-shadow: 0 0 8px rgba(41, 98, 255, 0.4);
+}
+.tech-tf-btn {
+    background: transparent;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Outfit', 'Vazirmatn', sans-serif;
+}
+.tech-tf-btn:hover {
+    color: var(--text-main);
+    background: rgba(255,255,255,0.05);
+}
+.tech-tf-btn.active {
+    background: #2962ff;
+    color: white;
+    box-shadow: 0 0 6px rgba(41, 98, 255, 0.3);
+}
