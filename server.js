@@ -14,7 +14,7 @@ app.use(cookieParser());
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     if (username === 'admin' && password === 'qazanj bka') {
-        res.cookie('auth_token', 'logged_in_secret_key', { maxAge: 1000 * 60 * 60 * 24 * 7, httpOnly: true }); // بۆ هەفتەیەک
+        res.cookie('auth_token', 'logged_in_secret_key', { httpOnly: true }); // تەنها بۆ یەک سێشن دەمێنێتەوە
         return res.json({ success: true });
     }
     return res.status(401).json({ success: false, message: 'یوزەرنەیم یان پاسوۆرد هەڵەیە' });
