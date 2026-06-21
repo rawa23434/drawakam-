@@ -1,4 +1,26 @@
 
+
+
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-0SD207L5ED');
+    
+
+
+
+        // ڕێگریکردن لە کرتەی ڕاست و Inspect Element بۆ پاراستنی کۆدەکان
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('keydown', e => {
+            if (e.keyCode === 123 ||
+                (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 67 || e.keyCode === 74)) ||
+                (e.ctrlKey && e.keyCode === 85)) {
+                e.preventDefault();
+            }
+        });
+    
+
         // بەڕێوەبردنی دۆخی ڕووناکی و تاریكی (Dark/Light Mode)
         let isLightMode = localStorage.getItem('theme') === 'light';
         if (isLightMode) document.body.classList.add('light-mode');
@@ -14,10 +36,10 @@
                 localStorage.setItem('theme', 'dark');
                 document.getElementById('themeToggle').innerHTML = '<i class="fas fa-sun" style="color:#ff9800;"></i>';
             }
-            
+
             // گۆڕینی ڕەنگی چارتەکان بە شێوەی ڕاستەوخۆ
             if (window.updateChartTheme) window.updateChartTheme(isLightMode);
-            
+
             // نوێکردنەوەی TradingView
             if (window.lastSearchedSymbol) {
                 updateTechnicalAnalysis(window.lastSearchedSymbol);
@@ -37,7 +59,7 @@
                 osc.start();
                 gainNode.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 1);
                 osc.stop(ctx.currentTime + 1);
-            } catch(e) { console.log("Audio not supported"); }
+            } catch (e) { console.log("Audio not supported"); }
         }
 
         const chainMap = {
@@ -58,7 +80,7 @@
 
                 const response = await fetch(url);
                 const result = await response.json();
-                
+
                 // گۆپڵەس وەڵامەکەی لەناو کلیلی result دا دەگەڕێنێتەوە کە کانتراکتەکەی تێدایە
                 if (result.result) {
                     return result.result[address.toLowerCase()] || result.result[address] || null;
@@ -73,7 +95,7 @@
         async function updateTechnicalAnalysis(symbol, timeframe = '1h') {
             const widgetDiv = document.getElementById('techContent');
             if (!symbol) return;
-            
+
             // نیشاندانی سپینەری بارکردن تەنها لەناو بەشی شیکاری تەکنیکی
             widgetDiv.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> خەریکی هەژمارکردنی شیکاری تەکنیکییە...</div>';
 
@@ -159,214 +181,212 @@
                 const lastSma = smaData.length > 0 ? smaData[smaData.length - 1].value : lastCandle.close;
                 const lastEma = emaData.length > 0 ? emaData[emaData.length - 1].value : lastCandle.close;
 
-            // یاریدەدەر بۆ ڕێکخستنی شێوازی نیشاندانی ژمارە بچووکەکان بۆ دراوە جیاوازەکان (تەنانەت مێم کۆینە بچووکەکان)
-            const formatVal = (v) => {
-                if (v === undefined || v === null || isNaN(v)) return "0.00";
-                const abs = Math.abs(v);
-                if (abs === 0) return "0.00";
-                if (abs >= 1000) return v.toFixed(0);
-                if (abs >= 1) return v.toFixed(2);
-                if (abs >= 0.01) return v.toFixed(4);
-                if (abs >= 0.0001) return v.toFixed(6);
-                return v.toFixed(8);
-            };
+                // هێنانی ڕێژەی مارکێت کەپ بۆ گۆڕینی نرخ بۆ مارکێت کەپ
+                const mcapRatio = (window.currentCoinMcap && window.currentCoinPrice) ? window.currentCoinMcap / window.currentCoinPrice : 1;
 
-            let buyVotes = 0; let sellVotes = 0; let neutralVotes = 0;
-            let score = 0; // پۆینت بۆ دیاریکردنی جێگەی میلی نیشاندەر (-5 بۆ +5)
+                const formatMcap = (v) => {
+                    if (v === undefined || v === null || isNaN(v)) return "0.00";
+                    const abs = Math.abs(v);
+                    if (abs === 0) return "0.00";
+                    if (abs >= 1e9) return (v / 1e9).toFixed(2) + "B";
+                    if (abs >= 1e6) return (v / 1e6).toFixed(2) + "M";
+                    if (abs >= 1e3) return (v / 1e3).toFixed(2) + "K";
+                    return v.toFixed(0);
+                };
 
-            // دیاریکردنی ناوی دەستەواژەی تایمفرەیم بە کوردی بۆ دەقە پێشبینییەکان
-            let timeframeNameKurdish = "١ کاتژمێری";
-            if (currentInterval === '1m') timeframeNameKurdish = "١ خولەکی";
-            else if (currentInterval === '5m') timeframeNameKurdish = "٥ خولەکی";
-            else if (currentInterval === '15m') timeframeNameKurdish = "١٥ خولەکی";
-            else if (currentInterval === '1h') timeframeNameKurdish = "١ کاتژمێری";
-            else if (currentInterval === '4h') timeframeNameKurdish = "٤ کاتژمێری";
-            else if (currentInterval === '1d') timeframeNameKurdish = "١ ڕۆژەیی";
-            else if (currentInterval === '1w') timeframeNameKurdish = "١ هەفتەیی";
+                // یاریدەدەر بۆ ڕێکخستنی شێوازی نیشاندانی ژمارە بچووکەکان بۆ دراوە جیاوازەکان
+                const formatVal = (v) => {
+                    if (v === undefined || v === null || isNaN(v)) return "0.00";
+                    const abs = Math.abs(v);
+                    if (abs === 0) return "0.00";
+                    if (abs >= 1000) return v.toFixed(0);
+                    if (abs >= 1) return v.toFixed(2);
+                    if (abs >= 0.01) return v.toFixed(4);
+                    if (abs >= 0.0001) return v.toFixed(6);
+                    return v.toFixed(8);
+                };
 
-            // ١. ئیندیکاتۆری RSI
-            let rsiStatus = "";
-            let rsiColor = "";
-            let rsiBg = "";
-            let rsiZone = "";
-            let rsiExplanation = "";
-            if (lastRsi > 65) { 
-                rsiStatus = "فرۆشتن 🔴"; 
-                rsiColor = "#ff5252";
-                rsiBg = "rgba(255, 82, 82, 0.15)";
-                rsiZone = "کڕینی زیادەڕۆ (Overbought)";
-                rsiExplanation = `شاخصی هێزی ڕێژەیی (RSI 14) لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong> لەسەر ئاستی بەرز دایە کە <strong>${lastRsi.toFixed(1)}</strong>ـە. نرخ لە ناوچەی کڕینی زیادەڕۆدایە و ئەگەری هەیە بەم زووانە ڕاستکردنەوە و دابەزینی نرخ دەستپێبکات.`;
-                sellVotes++; 
-                score--;
-            }
-            else if (lastRsi < 35) { 
-                rsiStatus = "کڕین 🟢"; 
-                rsiColor = "#00c853";
-                rsiBg = "rgba(0, 200, 83, 0.15)";
-                rsiZone = "فرۆشتنی زیادەڕۆ (Oversold)";
-                rsiExplanation = `شاخصی هێزی ڕێژەیی (RSI 14) لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong> لەسەر ئاستی نزم دایە کە <strong>${lastRsi.toFixed(1)}</strong>ـە. نرخ لە ناوچەی فرۆشتنی زیادەڕۆدایە و ئەگەری بەرزبوونەوەی بۆ سەرەوە هەیە.`;
-                buyVotes++; 
-                score++;
-            }
-            else { 
-                rsiStatus = "بێلایەن ⚪"; 
-                rsiColor = "var(--text-muted)";
-                rsiBg = "rgba(132, 142, 156, 0.12)";
-                rsiZone = "ئاسایی (Normal)";
-                rsiExplanation = `شاخصی هێزی ڕێژەیی (RSI 14) لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong> لەسەر ئاستی مامناوەند دایە کە <strong>${lastRsi.toFixed(1)}</strong>ـە. نرخ لە دۆخێکی ئاساییدایە و نە لە ناوچەی کڕینی زیادەڕۆیە و نە فرۆشتنی زیادەڕۆ.`;
-                neutralVotes++; 
-            }
+                let buyVotes = 0; let sellVotes = 0; let neutralVotes = 0;
+                let score = 0; // پۆینت بۆ دیاریکردنی جێگەی میلی نیشاندەر (-5 بۆ +5)
 
-            // ٢. ئیندیکاتۆری MACD
-            let macdStatus = "";
-            let macdColor = "";
-            let macdBg = "";
-            let macdExplanation = "";
-            if (lastMacd > lastSignal) { 
-                macdStatus = "کڕین 🟢"; 
-                macdColor = "#00c853";
-                macdBg = "rgba(0, 200, 83, 0.15)";
-                macdExplanation = `لەسەر تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، هێڵی شینی MACD (<strong>${formatVal(lastMacd)}</strong>) لەسەرووی هێڵی زەردی سیگناڵەوەیە (<strong>${formatVal(lastSignal)}</strong>) کە یەکتربڕینی ئەرێنی دروستکردووە و هاندەرە بۆ بەرزبوونەوەی نرخ.`;
-                buyVotes++; 
-                score++;
-            }
-            else { 
-                macdStatus = "فرۆشتن 🔴"; 
-                macdColor = "#ff5252";
-                macdBg = "rgba(255, 82, 82, 0.15)";
-                macdExplanation = `لەسەر تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، هێڵی شینی MACD (<strong>${formatVal(lastMacd)}</strong>) لەخوارەوەی هێڵی زەردی سیگناڵەوەیە (<strong>${formatVal(lastSignal)}</strong>) کە یەکتربڕینی نەرێنی دروستکردووە و زەبری دابەزین پیشان دەدات.`;
-                sellVotes++; 
-                score--;
-            }
+                // دیاریکردنی ناوی دەستەواژەی تایمفرەیم بە کوردی بۆ دەقە پێشبینییەکان
+                let timeframeNameKurdish = "١ کاتژمێری";
+                if (currentInterval === '1m') timeframeNameKurdish = "١ خولەکی";
+                else if (currentInterval === '5m') timeframeNameKurdish = "٥ خولەکی";
+                else if (currentInterval === '15m') timeframeNameKurdish = "١٥ خولەکی";
+                else if (currentInterval === '1h') timeframeNameKurdish = "١ کاتژمێری";
+                else if (currentInterval === '4h') timeframeNameKurdish = "٤ کاتژمێری";
+                else if (currentInterval === '1d') timeframeNameKurdish = "١ ڕۆژەیی";
+                else if (currentInterval === '1w') timeframeNameKurdish = "١ هەفتەیی";
 
-            // ٣. ئیندیکاتۆری SMA (20)
-            let smaStatus = "";
-            let smaColor = "";
-            let smaBg = "";
-            let smaExplanation = "";
-            if (lastCandle.close > lastSma) { 
-                smaStatus = "کڕین 🟢"; 
-                smaColor = "#00c853";
-                smaBg = "rgba(0, 200, 83, 0.15)";
-                smaExplanation = `نرخی ئێستای بازاڕ (<strong>$${formatVal(lastCandle.close)}</strong>) لەسەرووی تێکڕای جوڵاوی ٢٠ ${timeUnitKurdish}ی ڕابردوو دایە کە <strong>$${formatVal(lastSma)}</strong>ـە لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، ئەمەش نیشانەی ترێندێکی بەرزبوونەوەی مامناوەندە.`;
-                buyVotes++; 
-                score++;
-            }
-            else { 
-                smaStatus = "فرۆشتن 🔴"; 
-                smaColor = "#ff5252";
-                smaBg = "rgba(255, 82, 82, 0.15)";
-                smaExplanation = `نرخی ئێستای بازاڕ (<strong>$${formatVal(lastCandle.close)}</strong>) لەخوارەوەی تێکڕای جوڵاوی ٢٠ ${timeUnitKurdish}ی ڕابردوو دایە کە <strong>$${formatVal(lastSma)}</strong>ـە لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، ئەمەش نیشانەی فشار و ترێندێکی نەرێنییە.`;
-                sellVotes++; 
-                score--;
-            }
+                // ١. ئیندیکاتۆری RSI
+                let rsiStatus = "";
+                let rsiColor = "";
+                let rsiBg = "";
+                let rsiZone = "";
+                let rsiExplanation = "";
+                if (lastRsi > 65) {
+                    rsiStatus = "فرۆشتن 🔴";
+                    rsiColor = "#ff5252";
+                    rsiBg = "rgba(255, 82, 82, 0.15)";
+                    rsiZone = "کڕینی زیادەڕۆ (Overbought)";
+                    rsiExplanation = `شاخصی هێزی ڕێژەیی (RSI 14) لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong> لەسەر ئاستی بەرز دایە کە <strong>${lastRsi.toFixed(1)}</strong>ـە. نرخ لە ناوچەی کڕینی زیادەڕۆدایە و ئەگەری هەیە بەم زووانە ڕاستکردنەوە و دابەزینی نرخ دەستپێبکات.`;
+                    sellVotes++;
+                    score--;
+                }
+                else if (lastRsi < 35) {
+                    rsiStatus = "کڕین 🟢";
+                    rsiColor = "#00c853";
+                    rsiBg = "rgba(0, 200, 83, 0.15)";
+                    rsiZone = "فرۆشتنی زیادەڕۆ (Oversold)";
+                    rsiExplanation = `شاخصی هێزی ڕێژەیی (RSI 14) لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong> لەسەر ئاستی نزم دایە کە <strong>${lastRsi.toFixed(1)}</strong>ـە. نرخ لە ناوچەی فرۆشتنی زیادەڕۆدایە و ئەگەری بەرزبوونەوەی بۆ سەرەوە هەیە.`;
+                    buyVotes++;
+                    score++;
+                }
+                else {
+                    rsiStatus = "بێلایەن ⚪";
+                    rsiColor = "var(--text-muted)";
+                    rsiBg = "rgba(132, 142, 156, 0.12)";
+                    rsiZone = "ئاسایی (Normal)";
+                    rsiExplanation = `شاخصی هێزی ڕێژەیی (RSI 14) لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong> لەسەر ئاستی مامناوەند دایە کە <strong>${lastRsi.toFixed(1)}</strong>ـە. نرخ لە دۆخێکی ئاساییدایە و نە لە ناوچەی کڕینی زیادەڕۆیە و نە فرۆشتنی زیادەڕۆ.`;
+                    neutralVotes++;
+                }
 
-            // ٤. ئیندیکاتۆری EMA (10)
-            let emaStatus = "";
-            let emaColor = "";
-            let emaBg = "";
-            let emaExplanation = "";
-            if (lastCandle.close > lastEma) { 
-                emaStatus = "کڕین 🟢"; 
-                emaColor = "#00c853";
-                emaBg = "rgba(0, 200, 83, 0.15)";
-                emaExplanation = `نرخی ئێستای بازاڕ (<strong>$${formatVal(lastCandle.close)}</strong>) لەسەرووی تێکڕای جوڵاوی خێرای ١٠ ${timeUnitKurdish}ی ڕابردوو دایە کە <strong>$${formatVal(lastEma)}</strong>ـە لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>. ئەمە بەرزبوونەوەی خێرای نرخ پیشان دەدات.`;
-                buyVotes++; 
-                score++;
-            }
-            else { 
-                emaStatus = "فرۆشتن 🔴"; 
-                emaColor = "#ff5252";
-                emaBg = "rgba(255, 82, 82, 0.15)";
-                emaExplanation = `نرخی ئێستای بازاڕ (<strong>$${formatVal(lastCandle.close)}</strong>) لەخوارەوەی تێکڕای جوڵاوی خێرای ١٠ ${timeUnitKurdish}ی ڕابردوو دایە کە <strong>$${formatVal(lastEma)}</strong>ـە لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>. ئەمە دەریدەخات کە زەبر و فشارەکانی فرۆشتن لە کورتخایەندا زاڵن.`;
-                sellVotes++; 
-                score--;
-            }
+                // ٢. ئیندیکاتۆری MACD
+                let macdStatus = "";
+                let macdColor = "";
+                let macdBg = "";
+                let macdExplanation = "";
+                if (lastMacd > lastSignal) {
+                    macdStatus = "کڕین 🟢";
+                    macdColor = "#00c853";
+                    macdBg = "rgba(0, 200, 83, 0.15)";
+                    macdExplanation = `لەسەر تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، هێڵی شینی MACD (<strong>${formatVal(lastMacd)}</strong>) لەسەرووی هێڵی زەردی سیگناڵەوەیە (<strong>${formatVal(lastSignal)}</strong>) کە یەکتربڕینی ئەرێنی دروستکردووە و هاندەرە بۆ بەرزبوونەوەی نرخ.`;
+                    buyVotes++;
+                    score++;
+                }
+                else {
+                    macdStatus = "فرۆشتن 🔴";
+                    macdColor = "#ff5252";
+                    macdBg = "rgba(255, 82, 82, 0.15)";
+                    macdExplanation = `لەسەر تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، هێڵی شینی MACD (<strong>${formatVal(lastMacd)}</strong>) لەخوارەوەی هێڵی زەردی سیگناڵەوەیە (<strong>${formatVal(lastSignal)}</strong>) کە یەکتربڕینی نەرێنی دروستکردووە و زەبری دابەزین پیشان دەدات.`;
+                    sellVotes++;
+                    score--;
+                }
 
-            // ٥. زەبری نرخ (Candle Momentum)
-            let paStatus = "";
-            let paColor = "";
-            let paBg = "";
-            let paExplanation = "";
-            if (lastCandle.close >= lastCandle.open) { 
-                paStatus = "کڕین 🟢"; 
-                paColor = "#00c853";
-                paBg = "rgba(0, 200, 83, 0.15)";
-                paExplanation = `لە نوێترین مۆمی داخراوی تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، نرخی داخستن (<strong>$${formatVal(lastCandle.close)}</strong>) بەرزتر بووە لە نرخی کردنەوە (<strong>$${formatVal(lastCandle.open)}</strong>) کە مۆمێکی سەوزی بەهێزە و زاڵبوونی کڕیاران دەردەخات.`;
-                buyVotes++; 
-                score++;
-            }
-            else { 
-                paStatus = "فرۆشتن 🔴"; 
-                paColor = "#ff5252";
-                paBg = "rgba(255, 82, 82, 0.15)";
-                paExplanation = `لە نوێترین مۆمی داخراوی تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، نرخی داخستن (<strong>$${formatVal(lastCandle.close)}</strong>) نزمتر بووە لە نرخی کردنەوە (<strong>$${formatVal(lastCandle.open)}</strong>) کە مۆمێکی سوورە و نیشانەی زاڵبوونی فشارەکانی فرۆشتنە.`;
-                sellVotes++; 
-                score--;
-            }
+                // ٣. ئیندیکاتۆری SMA (20)
+                let smaStatus = "";
+                let smaColor = "";
+                let smaBg = "";
+                let smaExplanation = "";
+                if (lastCandle.close > lastSma) {
+                    smaStatus = "کڕین 🟢";
+                    smaColor = "#00c853";
+                    smaBg = "rgba(0, 200, 83, 0.15)";
+                    smaExplanation = `نرخی ئێستای بازاڕ (<strong>$${formatVal(lastCandle.close)}</strong>) لەسەرووی تێکڕای جوڵاوی ٢٠ ${timeUnitKurdish}ی ڕابردوو دایە کە <strong>$${formatVal(lastSma)}</strong>ـە لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، ئەمەش نیشانەی ترێندێکی بەرزبوونەوەی مامناوەندە.`;
+                    buyVotes++;
+                    score++;
+                }
+                else {
+                    smaStatus = "فرۆشتن 🔴";
+                    smaColor = "#ff5252";
+                    smaBg = "rgba(255, 82, 82, 0.15)";
+                    smaExplanation = `نرخی ئێستای بازاڕ (<strong>$${formatVal(lastCandle.close)}</strong>) لەخوارەوەی تێکڕای جوڵاوی ٢٠ ${timeUnitKurdish}ی ڕابردوو دایە کە <strong>$${formatVal(lastSma)}</strong>ـە لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، ئەمەش نیشانەی فشار و ترێندێکی نەرێنییە.`;
+                    sellVotes++;
+                    score--;
+                }
 
-            // هەژمارکردنی ئاڕاستەی گشتی بازاڕ و ڕوونکردنەوەی بە کوردی
-            let overall = ""; 
-            let overallColor = "";
-            let overallExplanation = "";
-            if (buyVotes >= 4) { 
-                overall = "کڕینی بەهێز 🚀"; 
-                overallColor = "#00c853"; 
-                overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، زۆربەی ئیندیکاتۆرەکان لەگەڵ ترێندی بەرزبوونەوەدان. هێز و مۆمێنتۆمی بەرزبوونەوەی زۆر بەهێز هەیە و ئەگەری بەردەوامی بەرزبوونەوەی زیاتر هەیە.`;
-            }
-            else if (buyVotes === 3) { 
-                overall = "کڕین 🟢"; 
-                overallColor = "#00c853"; 
-                overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، زۆرینەی ئیندیکاتۆرەکان پاڵپشتی کڕین دەکەن. ئاڕاستەی گشتی بە ڕووی بەرزبوونەوەیە بەڵام هێشتا پێویستە چاودێری مۆمەکانی تریش بکرێت.`;
-            }
-            else if (sellVotes >= 4) { 
-                overall = "فرۆشتنی بەهێز ⚠️"; 
-                overallColor = "#ff5252"; 
-                overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، فشار و زەبری فرۆشتن لەلایەن زۆربەی ئیندیکاتۆرەکانەوە پشتڕاست کراوەتەوە. مەترسی دابەزینی نرخ هەیە و دۆخەکە گونجاو نییە بۆ مانەوە لە کڕیندا.`;
-            }
-            else if (sellVotes === 3) { 
-                overall = "فرۆشتن 🔴"; 
-                overallColor = "#ff5252"; 
-                overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، زۆرینەی ئیندیکاتۆرەکان لەگەڵ دابەزیندان. فرۆشیاران کۆنترۆڵی نرخ دەکەن و ئەگەری دابەزینی نرخ زیاترە.`;
-            }
-            else { 
-                overall = "بێلایەن ⚪"; 
-                overallColor = "#ff9800"; 
-                overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، ئیندیکاتۆرەکان هاوسەنگن یان دەنگی دژیەک دەدەن. بازاڕ بێ بڕیارە و پێشنیار دەکرێت بۆ کڕین یان فرۆشتن چاوەڕوانی زیاتر بکرێت.`;
-            }
+                // ٤. ئیندیکاتۆری EMA (10)
+                let emaStatus = "";
+                let emaColor = "";
+                let emaBg = "";
+                let emaExplanation = "";
+                if (lastCandle.close > lastEma) {
+                    emaStatus = "کڕین 🟢";
+                    emaColor = "#00c853";
+                    emaBg = "rgba(0, 200, 83, 0.15)";
+                    emaExplanation = `نرخی ئێستای بازاڕ (<strong>$${formatVal(lastCandle.close)}</strong>) لەسەرووی تێکڕای جوڵاوی خێرای ١٠ ${timeUnitKurdish}ی ڕابردوو دایە کە <strong>$${formatVal(lastEma)}</strong>ـە لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>. ئەمە بەرزبوونەوەی خێرای نرخ پیشان دەدات.`;
+                    buyVotes++;
+                    score++;
+                }
+                else {
+                    emaStatus = "فرۆشتن 🔴";
+                    emaColor = "#ff5252";
+                    emaBg = "rgba(255, 82, 82, 0.15)";
+                    emaExplanation = `نرخی ئێستای بازاڕ (<strong>$${formatVal(lastCandle.close)}</strong>) لەخوارەوەی تێکڕای جوڵاوی خێرای ١٠ ${timeUnitKurdish}ی ڕابردوو دایە کە <strong>$${formatVal(lastEma)}</strong>ـە لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>. ئەمە دەریدەخات کە زەبر و فشارەکانی فرۆشتن لە کورتخایەندا زاڵن.`;
+                    sellVotes++;
+                    score--;
+                }
 
-            // هەژمارکردنی ئاستی کڕین و فرۆشتنی پێشنیارکراو بە لێکدانەوەی بۆڵینگەر باند
-            const bbData = calculateBollingerBands(data, 20, 2);
-            const lastBbUpper = bbData.upper.length > 0 ? bbData.upper[bbData.upper.length - 1].value : lastCandle.close * 1.15;
-            const lastBbLower = bbData.lower.length > 0 ? bbData.lower[bbData.lower.length - 1].value : lastCandle.close * 0.85;
+                // ٥. زەبری نرخ (Candle Momentum)
+                let paStatus = "";
+                let paColor = "";
+                let paBg = "";
+                let paExplanation = "";
+                if (lastCandle.close >= lastCandle.open) {
+                    paStatus = "کڕین 🟢";
+                    paColor = "#00c853";
+                    paBg = "rgba(0, 200, 83, 0.15)";
+                    paExplanation = `لە نوێترین مۆمی داخراوی تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، نرخی داخستن (<strong>$${formatVal(lastCandle.close)}</strong>) بەرزتر بووە لە نرخی کردنەوە (<strong>$${formatVal(lastCandle.open)}</strong>) کە مۆمێکی سەوزی بەهێزە و زاڵبوونی کڕیاران دەردەخات.`;
+                    buyVotes++;
+                    score++;
+                }
+                else {
+                    paStatus = "فرۆشتن 🔴";
+                    paColor = "#ff5252";
+                    paBg = "rgba(255, 82, 82, 0.15)";
+                    paExplanation = `لە نوێترین مۆمی داخراوی تایمفرەیمی <strong>${timeframeNameKurdish}</strong>، نرخی داخستن (<strong>$${formatVal(lastCandle.close)}</strong>) نزمتر بووە لە نرخی کردنەوە (<strong>$${formatVal(lastCandle.open)}</strong>) کە مۆمێکی سوورە و نیشانەی زاڵبوونی فشارەکانی فرۆشتنە.`;
+                    sellVotes++;
+                    score--;
+                }
 
-            // ئاستەکانی پاڵپشتی و بەرگری (Buy / Sell targets)
-            const buyPriceTarget = lastBbLower;
-            const sellPriceTarget = lastBbUpper;
+                // هەژمارکردنی ئاڕاستەی گشتی بازاڕ و ڕوونکردنەوەی بە کوردی
+                let overall = "";
+                let overallColor = "";
+                let overallExplanation = "";
+                if (buyVotes >= 4) {
+                    overall = "کڕینی بەهێز 🚀";
+                    overallColor = "#00c853";
+                    overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، زۆربەی ئیندیکاتۆرەکان لەگەڵ ترێندی بەرزبوونەوەدان. هێز و مۆمێنتۆمی بەرزبوونەوەی زۆر بەهێز هەیە و ئەگەری بەردەوامی بەرزبوونەوەی زیاتر هەیە.`;
+                }
+                else if (buyVotes === 3) {
+                    overall = "کڕین 🟢";
+                    overallColor = "#00c853";
+                    overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، زۆرینەی ئیندیکاتۆرەکان پاڵپشتی کڕین دەکەن. ئاڕاستەی گشتی بە ڕووی بەرزبوونەوەیە بەڵام هێشتا پێویستە چاودێری مۆمەکانی تریش بکرێت.`;
+                }
+                else if (sellVotes >= 4) {
+                    overall = "فرۆشتنی بەهێز ⚠️";
+                    overallColor = "#ff5252";
+                    overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، فشار و زەبری فرۆشتن لەلایەن زۆربەی ئیندیکاتۆرەکانەوە پشتڕاست کراوەتەوە. مەترسی دابەزینی نرخ هەیە و دۆخەکە گونجاو نییە بۆ مانەوە لە کڕیندا.`;
+                }
+                else if (sellVotes === 3) {
+                    overall = "فرۆشتن 🔴";
+                    overallColor = "#ff5252";
+                    overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، زۆرینەی ئیندیکاتۆرەکان لەگەڵ دابەزیندان. فرۆشیاران کۆنترۆڵی نرخ دەکەن و ئەگەری دابەزینی نرخ زیاترە.`;
+                }
+                else {
+                    overall = "بێلایەن ⚪";
+                    overallColor = "#ff9800";
+                    overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، ئیندیکاتۆرەکان هاوسەنگن یان دەنگی دژیەک دەدەن. بازاڕ بێ بڕیارە و پێشنیار دەکرێت بۆ کڕین یان فرۆشتن چاوەڕوانی زیاتر بکرێت.`;
+                }
 
-            // ئاستەکانی مارکێت کەپ ئەگەر مەکاپ تۆمار کرابێت
-            let buyMcapTarget = 0;
-            let sellMcapTarget = 0;
-            if (window.currentCoinMcap && window.currentCoinPrice) {
-                const mcapRatio = window.currentCoinMcap / window.currentCoinPrice;
-                buyMcapTarget = buyPriceTarget * mcapRatio;
-                sellMcapTarget = sellPriceTarget * mcapRatio;
-            }
+                // هەژمارکردنی ئاستی کڕین و فرۆشتنی پێشنیارکراو بە لێکدانەوەی بۆڵینگەر باند
+                const bbData = calculateBollingerBands(data, 20, 2);
+                const lastBbUpper = bbData.upper.length > 0 ? bbData.upper[bbData.upper.length - 1].value : lastCandle.close * 1.15;
+                const lastBbLower = bbData.lower.length > 0 ? bbData.lower[bbData.lower.length - 1].value : lastCandle.close * 0.85;
 
-            const formatMcap = (v) => {
-                if (v === undefined || v === null || isNaN(v)) return "0.00";
-                const abs = Math.abs(v);
-                if (abs === 0) return "0.00";
-                if (abs >= 1e9) return (v / 1e9).toFixed(2) + "B";
-                if (abs >= 1e6) return (v / 1e6).toFixed(2) + "M";
-                if (abs >= 1e3) return (v / 1e3).toFixed(2) + "K";
-                return v.toFixed(0);
-            };
+                // ئاستەکانی پاڵپشتی و بەرگری (Buy / Sell targets)
+                const buyPriceTarget = lastBbLower;
+                const sellPriceTarget = lastBbUpper;
 
-            // هەژمارکردنی شوێنی نیشاندەری بازەکە (Pointer) لەسەر هێڵی گرافیکییەکە (٥٪ بۆ ٩٥٪)
-            const pointerPos = 50 + (score * 9);
+                // ئاستەکانی مارکێت کەپ ئەگەر مەکاپ تۆمار کرابێت
+                let buyMcapTarget = buyPriceTarget * mcapRatio;
+                let sellMcapTarget = sellPriceTarget * mcapRatio;
 
-            widgetDiv.innerHTML = `
+                // هەژمارکردنی شوێنی نیشاندەری بازەکە (Pointer) لەسەر هێڵی گرافیکییەکە (٥٪ بۆ ٩٥٪)
+                const pointerPos = 50 + (score * 9);
+
+                widgetDiv.innerHTML = `
                 <!-- کورتەی ئاڕاستەی گشتی -->
                 <div style="text-align: center; padding: 15px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 15px; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);">
                     <h2 style="margin: 0; color: ${overallColor}; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px;">${overall}</h2>
@@ -417,14 +437,15 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                             <span style="font-weight: bold; font-size: 0.8rem; color: #00c853;">📥 ناوچەی کڕین (پاڵپشتی بەهێز)</span>
                         </div>
-                        <div style="font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
-                            نرخ: <span style="color: #00c853;">$${formatVal(buyPriceTarget)}</span>
-                        </div>
                         ${buyMcapTarget > 0 ? `
-                        <div style="font-family: 'Outfit'; font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
-                            مارکێت کەپ (FDV): <span style="color: var(--text-main); font-weight: 600;">$${formatMcap(buyMcapTarget)}</span>
+                        <div style="font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
+                            مارکێت کەپ: <span style="color: #00c853;">$${formatMcap(buyMcapTarget)}</span>
                         </div>
-                        ` : ''}
+                        ` : `
+                        <div style="font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
+                            مارکێت کەپ: <span style="color: #00c853;">بەردەست نییە</span>
+                        </div>
+                        `}
                     </div>
                     
                     <!-- Sell Target -->
@@ -432,14 +453,15 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                             <span style="font-weight: bold; font-size: 0.8rem; color: #ff5252;">📤 فرۆشتن و قازانج (بەرگری بەهێز)</span>
                         </div>
-                        <div style="font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
-                            نرخ: <span style="color: #ff5252;">$${formatVal(sellPriceTarget)}</span>
-                        </div>
                         ${sellMcapTarget > 0 ? `
-                        <div style="font-family: 'Outfit'; font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
-                            مارکێت کەپ (FDV): <span style="color: var(--text-main); font-weight: 600;">$${formatMcap(sellMcapTarget)}</span>
+                        <div style="font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
+                            مارکێت کەپ: <span style="color: #ff5252;">$${formatMcap(sellMcapTarget)}</span>
                         </div>
-                        ` : ''}
+                        ` : `
+                        <div style="font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
+                            مارکێت کەپ: <span style="color: #ff5252;">بەردەست نییە</span>
+                        </div>
+                        `}
                     </div>
                 </div>
 
@@ -468,8 +490,8 @@
                             <span style="background: ${macdBg}; color: ${macdColor}; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px;">${macdStatus}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">
-                            <span>هێڵی MACD: <strong style="color: var(--text-main); font-family: 'Outfit';">${formatVal(lastMacd)}</strong></span>
-                            <span>سیگناڵ (Signal): <strong style="color: var(--text-main); font-family: 'Outfit';">${formatVal(lastSignal)}</strong></span>
+                            <span>هێڵی MACD: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatMcap(lastMacd * mcapRatio)}</strong></span>
+                            <span>سیگناڵ (Signal): <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatMcap(lastSignal * mcapRatio)}</strong></span>
                         </div>
                         <div style="font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 6px; margin-top: 4px;">
                             ${macdExplanation}
@@ -483,8 +505,8 @@
                             <span style="background: ${smaBg}; color: ${smaColor}; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px;">${smaStatus}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">
-                            <span>نرخی بازاڕ: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatVal(lastCandle.close)}</strong></span>
-                            <span>تێکڕای ٢٠ ${timeUnitKurdish}: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatVal(lastSma)}</strong></span>
+                            <span>مارکێت کەپی بازاڕ: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatMcap(lastCandle.close * mcapRatio)}</strong></span>
+                            <span>تێکڕای ٢٠ ${timeUnitKurdish}: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatMcap(lastSma * mcapRatio)}</strong></span>
                         </div>
                         <div style="font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 6px; margin-top: 4px;">
                             ${smaExplanation}
@@ -498,8 +520,8 @@
                             <span style="background: ${emaBg}; color: ${emaColor}; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px;">${emaStatus}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">
-                            <span>نرخی بازاڕ: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatVal(lastCandle.close)}</strong></span>
-                            <span>تێکڕای خێرای ١٠ ${timeUnitKurdish}: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatVal(lastEma)}</strong></span>
+                            <span>مارکێت کەپی بازاڕ: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatMcap(lastCandle.close * mcapRatio)}</strong></span>
+                            <span>تێکڕای خێرای ١٠ ${timeUnitKurdish}: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatMcap(lastEma * mcapRatio)}</strong></span>
                         </div>
                         <div style="font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 6px; margin-top: 4px;">
                             ${emaExplanation}
@@ -513,8 +535,8 @@
                             <span style="background: ${paBg}; color: ${paColor}; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px;">${paStatus}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">
-                            <span>نرخی داخستن: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatVal(lastCandle.close)}</strong></span>
-                            <span>نرخی کردنەوە: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatVal(lastCandle.open)}</strong></span>
+                            <span>مارکێت کەپی داخستن: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatMcap(lastCandle.close * mcapRatio)}</strong></span>
+                            <span>مارکێت کەپی کردنەوە: <strong style="color: var(--text-main); font-family: 'Outfit';">$${formatMcap(lastCandle.open * mcapRatio)}</strong></span>
                         </div>
                         <div style="font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 6px; margin-top: 4px;">
                             ${paExplanation}
@@ -557,10 +579,10 @@
                     }
 
                     let html = '<div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">';
-                    
+
                     newsItems.forEach(item => {
                         const timeAgo = formatNewsTimeAgo(item.pubDate);
-                        
+
                         html += `
                             <a href="${item.link}" target="_blank" class="news-card" style="display: block; text-decoration: none; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-input); transition: all 0.25s ease;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.72rem; color: var(--text-muted);">
@@ -592,7 +614,7 @@
                     `;
 
                     widgetDiv.innerHTML = html;
-                    
+
                     // Add smooth interactive effects via JS
                     const cards = widgetDiv.querySelectorAll('.news-card');
                     cards.forEach(card => {
@@ -743,7 +765,7 @@
             const rsiChartDiv = document.getElementById('rsi-chart');
             const macdChartDiv = document.getElementById('macd-chart');
             const dexChartDiv = document.getElementById('dex-chart');
-            
+
             placeholder.innerText = `خەریکی بارکردنی مۆمەکانی (${newInterval})...`;
             placeholder.style.display = "block";
             priceChartDiv.style.visibility = "hidden";
@@ -757,10 +779,10 @@
                     isLoaded = await window.loadLiveChart(window.lastSearchedSymbol, newInterval);
                 } else {
                     isLoaded = await window.loadDexChart(
-                        window.currentNetwork, 
-                        window.currentPoolAddress, 
-                        window.currentTokenAddress, 
-                        false, 
+                        window.currentNetwork,
+                        window.currentPoolAddress,
+                        window.currentTokenAddress,
+                        false,
                         newInterval
                     );
                 }
@@ -770,7 +792,7 @@
                     priceChartDiv.style.visibility = "visible";
                     rsiChartDiv.style.visibility = "visible";
                     macdChartDiv.style.visibility = "visible";
-                    
+
                     // نوێکردنەوەی شیکاری تەکنیکی بە پێی کاتە نوێیەکە
                     updateTechnicalAnalysis(window.lastSearchedSymbol);
                 } else {
@@ -791,12 +813,12 @@
 
         async function searchContract() {
             const contractAddress = document.getElementById("contractInput").value.trim();
-            
+
             if (contractAddress === "") {
                 alert("تکایە سەرەتا کانتراکتێک بنووسە!");
                 return;
             }
-            
+
             const placeholder = document.getElementById('placeholderText');
             const leftPlaceholder = document.getElementById('leftPlaceholder');
             const rightPlaceholder = document.getElementById('rightPlaceholder');
@@ -833,23 +855,37 @@
                     const baseSymbol = pair.baseToken.symbol;
                     const tokenAddress = pair.baseToken.address; // کانتراکتی ڕاستەقینەی تۆکنەکە
                     const price = parseFloat(pair.priceUsd);
-                    const change24h = pair.priceChange.h24;
+                    const change24h = pair.priceChange ? pair.priceChange.h24 : 0;
                     const liquidity = pair.liquidity ? pair.liquidity.usd : 0;
-                window.currentCoinPrice = price; // هەڵگرتنی نرخی ئێستا بۆ بەشی هەژمارکردن
-                window.currentCoinMcap = pair.fdv || pair.marketCap || 0; // هەڵگرتنی مارکێت کەپی ئێستا
-                window.lastSearchedSymbol = baseSymbol;
-                
-                addRecentSearch(tokenAddress, baseSymbol); // زیادکردنی کانتراکتی ڕاستەقینە بۆ لیستی گەڕانە پێشووەکان
-                
-                // گۆڕینی تایتڵی تابی وێبگەڕ بۆ ناوی دراوەکە
-                document.title = `${baseSymbol} | شیکاری پێشکەوتوو`;
+                    const mcapValid = pair.fdv || pair.marketCap || 0;
 
-                const newChartUrl = `https://dexscreener.com/${chainId}/${tokenAddress}?embed=1&theme=${isLightMode ? 'light' : 'dark'}&trades=0&info=0`;
-                    
+                    // ڕێگریکردن لە گەڕانی دراوە سەرەکییەکان لەم پەڕەیەدا
+                    const mainCoins = ["BTC", "ETH", "USDT", "BNB", "SOL", "USDC", "XRP", "DOGE", "TON", "ADA", "SHIB", "AVAX", "TRX", "DOT", "BCH", "LINK", "MATIC", "NEAR", "LTC", "ICP", "UNI", "APT", "DAI", "STX", "FIL", "ARB", "RNDR", "ATOM", "IMX", "INJ", "MKR", "VET", "OP", "GRT", "KAS", "MNT", "LDO", "THETA", "TIA", "FET", "XMR", "ETC", "ALGO", "HBAR", "RUNE", "QNT", "LUNC", "WIF", "PEPE", "FLOKI", "BONK", "AAVE", "SUI", "SEI", "EGLD", "FTM", "SAND", "MANA", "AXS", "GALA", "EOS", "CHZ", "SNX", "CRO", "CAKE", "BGB", "GMX", "CORE", "AERO", "MINA", "BLUR", "STRK", "NEO", "KAVA", "ILV", "IOTA", "ZIL", "TWT", "ROSE", "LRC", "GNO", "ZRX", "BAT", "ENJ", "1INCH", "COMP", "BAL", "SUSHI", "CRV", "YFI", "WETH", "WBTC", "BOME", "MEME", "ORDI", "SATS", "POL", "JUP", "PYTH", "ONDO", "PENDLE", "ENA", "DYM", "ALT", "MANTA", "PIXEL", "ETHFI", "W", "TNSR", "OMNI", "REZ", "NOT", "IO", "ZRO", "BLAST"];
+                    const isMainSymbol = mainCoins.includes(baseSymbol.toUpperCase());
+
+                    if (isMainSymbol || mcapValid > 200000000 || liquidity > 5000000) {
+                        alert("ئەمە دراوێکی سەرەکییە یان قەبارەی زۆر گەورەیە! تکایە بچۆ بۆ بەشی 'دراوە سەرەکییەکان' بۆ شیکاری.");
+                        searchBtn.innerText = "گەڕان";
+                        searchBtn.disabled = false;
+                        placeholder.style.display = "none";
+                        return;
+                    }
+
+                    window.currentCoinPrice = price; // هەڵگرتنی نرخی ئێستا بۆ بەشی هەژمارکردن
+                    window.currentCoinMcap = mcapValid; // هەڵگرتنی مارکێت کەپی ئێستا
+                    window.lastSearchedSymbol = baseSymbol;
+
+                    addRecentSearch(tokenAddress, baseSymbol); // زیادکردنی کانتراکتی ڕاستەقینە بۆ لیستی گەڕانە پێشووەکان
+
+                    // گۆڕینی تایتڵی تابی وێبگەڕ بۆ ناوی دراوەکە
+                    document.title = `${baseSymbol} | شیکاری پێشکەوتوو`;
+
+                    const newChartUrl = `https://dexscreener.com/${chainId}/${tokenAddress}?embed=1&theme=${isLightMode ? 'light' : 'dark'}&trades=0&info=0`;
+
                     placeholder.style.display = "none";
                     leftPlaceholder.style.display = "none";
                     rightPlaceholder.style.display = "none";
-                    
+
                     // سڕینەوەی هێڵەکان و نیشانەکانی پێشوو لەسەر چارتەکە لە کاتی گەڕانی نوێدا
                     if (window.candlestickSeries) {
                         window.candlestickSeries.setMarkers([]);
@@ -876,7 +912,7 @@
                     if (activeIntervalEl) {
                         activeIntervalEl.innerText = '1H';
                     }
-                    
+
                     // شاردنەوەی فۆڕمی پێشوو لە کاتی گەڕانی دراوێکی نوێ
                     document.getElementById('tradeResult').style.display = 'none';
                     chartContainer.style.justifyContent = "flex-start";
@@ -889,7 +925,7 @@
                     priceChartDiv.style.visibility = "visible";
                     rsiChartDiv.style.visibility = "visible";
                     macdChartDiv.style.visibility = "visible";
-                    
+
                     let isBinanceCoin = false;
                     if (window.loadLiveChart) {
                         isBinanceCoin = await window.loadLiveChart(baseSymbol);
@@ -959,7 +995,7 @@
             const change = pair.priceChange && pair.priceChange.h24 ? parseFloat(pair.priceChange.h24) : 0;
             const liq = pair.liquidity ? pair.liquidity.usd : 0;
             const mcap = pair.fdv || 0; // Market Cap
-            
+
             const buyZone = document.getElementById('buyZone');
             const sellZone = document.getElementById('sellZone');
 
@@ -980,7 +1016,7 @@
             const totalTxns = buys24h + sells24h;
             const buyRatio = totalTxns > 0 ? ((buys24h / totalTxns) * 100).toFixed(1) : 50;
             const sellRatio = totalTxns > 0 ? ((sells24h / totalTxns) * 100).toFixed(1) : 50;
-            
+
             let ageDays = pair.pairCreatedAt ? Math.floor((Date.now() - pair.pairCreatedAt) / (1000 * 60 * 60 * 24)) : null;
             let ageStr = ageDays !== null ? (ageDays === 0 ? "نوێ (کەمتر لە ڕۆژێک)" : `${ageDays} ڕۆژ`) : "نەزانراو";
 
@@ -1089,30 +1125,30 @@
                 </div>
 
             <div style="border-top:1px solid var(--border-color); padding-top:10px;">
-                    <div class="security-item"><span>Security:</span><span class="${isHoneypot.includes('نەخێر')?'safe':'unsafe'}">${isHoneypot}</span></div>
+                    <div class="security-item"><span>Security:</span><span class="${isHoneypot.includes('نەخێر') ? 'safe' : 'unsafe'}">${isHoneypot}</span></div>
                     <div class="security-item"><span>Ownership:</span><span class="safe">${isRenounced}</span></div>
                 </div>
             `;
-            
+
             // پڕکردنەوەی زانیارییەکانی بۆکسی خاوەن دراو و سۆشیاڵ میدیا
             const ownerAddress = security?.owner_address || "";
             const creatorAddress = security?.creator_address || "";
             const dexId = pair.dexId || "نەزانراو";
             const pairAddress = pair.pairAddress || "نەزانراو";
-            
+
             const deadAddresses = [
                 "0x000000000000000000000000000000000000dead",
                 "0x0000000000000000000000000000000000000000",
                 "0x0000000000000000000000000000000000000001",
                 ""
             ];
-            
+
             const isOwnerRenounced = deadAddresses.includes(ownerAddress.toLowerCase());
-            
+
             let ownershipStatusText = "";
             let ownershipStatusColor = "";
             let ownershipExplanation = "";
-            
+
             if (isOwnerRenounced) {
                 if (security?.can_take_back_ownership === "1" || security?.can_take_back_ownership === 1) {
                     ownershipStatusText = "⚠️ واز لێ هێنراوە بەڵام دەتوانێت بیگەڕێنێتەوە (Reclaimable)";
@@ -1157,19 +1193,19 @@
             const isMintable = (security?.is_mintable === "1" || security?.is_mintable === 1)
                 ? "<span style='color: #ff5252;'>بەڵێ (مەترسی دروستکردنی دراوی نوێ) 🔴</span>"
                 : "<span style='color: #00c853;'>نەخێر 🟢</span>";
-                
+
             const isTaxModifiable = (security?.slippage_modifiable === "1" || security?.slippage_modifiable === 1 || security?.personal_slippage_modifiable === "1" || security?.personal_slippage_modifiable === 1)
                 ? "<span style='color: #ff5252;'>بەڵێ (مەترسی گۆڕینی باج) 🔴</span>"
                 : "<span style='color: #00c853;'>نەخێر (باج جێگیرە) 🟢</span>";
-                
+
             const isTransferPausable = (security?.transfer_pausable === "1" || security?.transfer_pausable === 1)
                 ? "<span style='color: #ff5252;'>بەڵێ (مەترسی وەستاندنی کڕین/فرۆشتن) 🔴</span>"
                 : "<span style='color: #00c853;'>نەخێر 🟢</span>";
-                
+
             const hasBlacklist = (security?.is_blacklisted === "1" || security?.is_blacklisted === 1)
                 ? "<span style='color: #ff5252;'>بەڵێ (دەتوانێت کڕیاران بلۆک بکات) 🔴</span>"
                 : "<span style='color: #00c853;'>نەخێر 🟢</span>";
-                
+
             const canChangeBalance = (security?.owner_change_balance === "1" || security?.owner_change_balance === 1)
                 ? "<span style='color: #ff5252;'>🚨 بەڵێ (مەترسی گەورەی دەستکاری باڵانس) 🔴</span>"
                 : "<span style='color: #00c853;'>نەخێر 🟢</span>";
@@ -1183,10 +1219,10 @@
                     }
                 });
             }
-            const burnedStatus = burnedPercent > 0 
-                ? `<span style='color: #00c853;'>${(burnedPercent * 100).toFixed(2)}% سوتێنراوە 🔥</span>` 
+            const burnedStatus = burnedPercent > 0
+                ? `<span style='color: #00c853;'>${(burnedPercent * 100).toFixed(2)}% سوتێنراوە 🔥</span>`
                 : `<span style='color: var(--text-muted);'>0% (یان لە لیستی ١٠ گەورەترینەکان نییە)</span>`;
-                
+
             // دۆزینەوەی بڕی لکەیدیتی سوتێنراو یان قوفڵکراو (LP Burned/Locked)
             let lpBurnedPercent = 0;
             if (security?.lp_holders && Array.isArray(security.lp_holders)) {
@@ -1198,21 +1234,21 @@
                     }
                 });
             }
-            const lpBurnedStatus = lpBurnedPercent > 0 
-                ? `<span style='color: #00c853;'>${(lpBurnedPercent * 100).toFixed(2)}% پارێزراوە (سوتێنراوە یان قوفڵکراوە) 🔒🔥</span>` 
+            const lpBurnedStatus = lpBurnedPercent > 0
+                ? `<span style='color: #00c853;'>${(lpBurnedPercent * 100).toFixed(2)}% پارێزراوە (سوتێنراوە یان قوفڵکراوە) 🔒🔥</span>`
                 : `<span style='color: #ff5252;'>0% (ئاگاداربە! مەترسی ڕاکێشانی لکەیدیتی هەیە) 🔴</span>`;
 
             // دروستکردنی دوگمەی کۆپی
-            const copyCreatorBtn = creatorAddress 
-                ? `<button onclick="navigator.clipboard.writeText('${creatorAddress}'); this.innerHTML='<i class=\\'fas fa-check\\'></i> کۆپی کرا'; this.style.color='#00c853';" style="background: var(--bg-panel); border: 1px solid var(--border-color); color: #2962ff; cursor: pointer; font-size: 0.75rem; margin-right: 5px; padding: 2px 8px; border-radius: 4px; transition: 0.3s;"><i class="fas fa-copy"></i> کۆپی</button>` 
+            const copyCreatorBtn = creatorAddress
+                ? `<button onclick="navigator.clipboard.writeText('${creatorAddress}'); this.innerHTML='<i class=\\'fas fa-check\\'></i> کۆپی کرا'; this.style.color='#00c853';" style="background: var(--bg-panel); border: 1px solid var(--border-color); color: #2962ff; cursor: pointer; font-size: 0.75rem; margin-right: 5px; padding: 2px 8px; border-radius: 4px; transition: 0.3s;"><i class="fas fa-copy"></i> کۆپی</button>`
                 : '';
-                
-            const copyOwnerBtn = (ownerAddress && !isOwnerRenounced) 
-                ? `<button onclick="navigator.clipboard.writeText('${ownerAddress}'); this.innerHTML='<i class=\\'fas fa-check\\'></i> کۆپی کرا'; this.style.color='#00c853';" style="background: var(--bg-panel); border: 1px solid var(--border-color); color: #2962ff; cursor: pointer; font-size: 0.75rem; margin-right: 5px; padding: 2px 8px; border-radius: 4px; transition: 0.3s;"><i class="fas fa-copy"></i> کۆپی</button>` 
+
+            const copyOwnerBtn = (ownerAddress && !isOwnerRenounced)
+                ? `<button onclick="navigator.clipboard.writeText('${ownerAddress}'); this.innerHTML='<i class=\\'fas fa-check\\'></i> کۆپی کرا'; this.style.color='#00c853';" style="background: var(--bg-panel); border: 1px solid var(--border-color); color: #2962ff; cursor: pointer; font-size: 0.75rem; margin-right: 5px; padding: 2px 8px; border-radius: 4px; transition: 0.3s;"><i class="fas fa-copy"></i> کۆپی</button>`
                 : '';
-                
-            const copyPairBtn = (pairAddress !== "نەزانراو") 
-                ? `<button onclick="navigator.clipboard.writeText('${pairAddress}'); this.innerHTML='<i class=\\'fas fa-check\\'></i> کۆپی کرا'; this.style.color='#00c853';" style="background: var(--bg-panel); border: 1px solid var(--border-color); color: #2962ff; cursor: pointer; font-size: 0.75rem; margin-right: 5px; padding: 2px 8px; border-radius: 4px; transition: 0.3s;"><i class="fas fa-copy"></i> کۆپی</button>` 
+
+            const copyPairBtn = (pairAddress !== "نەزانراو")
+                ? `<button onclick="navigator.clipboard.writeText('${pairAddress}'); this.innerHTML='<i class=\\'fas fa-check\\'></i> کۆپی کرا'; this.style.color='#00c853';" style="background: var(--bg-panel); border: 1px solid var(--border-color); color: #2962ff; cursor: pointer; font-size: 0.75rem; margin-right: 5px; padding: 2px 8px; border-radius: 4px; transition: 0.3s;"><i class="fas fa-copy"></i> کۆپی</button>`
                 : '';
 
             document.getElementById("ownerContent").innerHTML = `
@@ -1299,10 +1335,10 @@
             // --- شیکاری نهەنگەکان (Whale Tracker) ---
             const avgTxSize = totalTxns > 0 ? (vol24h / totalTxns) : 0;
             const volToLiqRatio = liq > 0 ? (vol24h / liq) : 0;
-            
+
             let whaleStatus = "";
             let whaleColor = "";
-            
+
             if (avgTxSize > 3000) {
                 whaleStatus = "نهەنگەکان زۆر چالاکن 🚨 (کڕین/فرۆشتنی زەبەلاح)";
                 whaleColor = "#ff5252"; // سوور
@@ -1313,7 +1349,7 @@
                 whaleStatus = "پارەی بچووک و ئاسایی <span class='notranslate' translate='no'>(Retail)</span> 🐟";
                 whaleColor = "#00c853"; // سەوز
             }
-            
+
             let volLiqStatus = "";
             if (volToLiqRatio > 10) {
                 volLiqStatus = "<span style='color: #ff5252;'>زۆر مەترسیدارە (دەستکاریکردنی نرخی تێدایە)</span>";
@@ -1322,11 +1358,11 @@
             } else {
                 volLiqStatus = "<span style='color: #00c853;'>ئاساییە</span>";
             }
-            
+
             // لێکدانەوەی ئاڕاستەی نهەنگەکان بەپێی ڕێژەی کڕین و فرۆشتن
             const buyRatioNum = parseFloat(buyRatio);
             let whaleAction = "";
-            
+
             if (avgTxSize > 1000) {
                 if (buyRatioNum > 55) {
                     whaleAction = "<div style='margin-top: 10px; padding: 8px; background: rgba(0, 200, 83, 0.1); border: 1px solid rgba(0, 200, 83, 0.3); border-radius: 6px;'><span style='color: #00c853;'>🟢 <strong>شیکاری:</strong> نهەنگەکان خەریکی کۆکردنەوەن (کڕینی گەورە). ئەگەری فڕینی نرخ هەیە.</span></div>";
@@ -1336,7 +1372,7 @@
                     whaleAction = "<div style='margin-top: 10px; padding: 8px; background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.3); border-radius: 6px;'><span style='color: #ff9800;'>🟡 <strong>شیکاری:</strong> ململانێی قورس هەیە لەنێوان کڕیار و فرۆشیاری گەورە.</span></div>";
                 }
             } else {
-                 whaleAction = "<div style='margin-top: 10px; padding: 8px; background: var(--bg-card); border-radius: 6px;'><span style='color: var(--text-muted);'>🐟 خەڵکی ئاسایی مامەڵە دەکات، جوڵەی گەورە پێشبینی ناکرێت.</span></div>";
+                whaleAction = "<div style='margin-top: 10px; padding: 8px; background: var(--bg-card); border-radius: 6px;'><span style='color: var(--text-muted);'>🐟 خەڵکی ئاسایی مامەڵە دەکات، جوڵەی گەورە پێشبینی ناکرێت.</span></div>";
             }
 
             const whaleContent = document.getElementById("whaleContent");
@@ -1405,7 +1441,7 @@
                         }
 
                         const shortAddr = holder.address ? `${holder.address.substring(0, 6)}...${holder.address.substring(holder.address.length - 4)}` : "N/A";
-                        const usdFormatted = usdVal > 0 ? `$${usdVal.toLocaleString(undefined, {maximumFractionDigits: 0})}` : "داتا نییە";
+                        const usdFormatted = usdVal > 0 ? `$${usdVal.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "داتا نییە";
 
                         holdersRows += `
                             <div style="padding: 10px; background: var(--bg-input); border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 8px;">
@@ -1487,7 +1523,7 @@
                     <!-- ئامارەکانی کڕین/فرۆشتنی گەورە -->
                     <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px; font-size: 0.8rem;">
                         <span>تێکڕای قەبارەی هەر کڕینێک:</span>
-                        <strong style="color: #2962ff; font-family: 'Outfit';">$${avgTxSize.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                        <strong style="color: #2962ff; font-family: 'Outfit';">$${avgTxSize.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px; font-size: 0.8rem;">
                         <span>کۆیی مامەڵەکانی نهەنگەکان (24h):</span>
@@ -1534,33 +1570,33 @@
 
         // فەنکشنی لێکدانەوەی مامەڵەی کەسی (Trade Calculator)
         function calculateTrade() {
-            const buyPrice = parseFloat(document.getElementById('userBuyPrice').value);
+            const buyMcap = parseFloat(document.getElementById('userBuyMcap').value);
             const investAmount = parseFloat(document.getElementById('userInvestAmount').value);
             const buyDate = document.getElementById('userBuyDate').value;
             const taxInput = document.getElementById('userTaxPercent');
             const taxPercent = taxInput ? parseFloat(taxInput.value) || 0 : 0;
             const gasInput = document.getElementById('userGasFee');
             const gasFee = gasInput ? parseFloat(gasInput.value) || 0 : 0;
-            const currentPrice = window.currentCoinPrice;
-            
-            if (!buyPrice || !investAmount || !currentPrice) {
-                alert("تکایە سەرەتا نرخی کڕین و بڕی پارەکە بە دروستی بنووسە، وە دڵنیابە کە دراوێک گەڕاویت و نرخی ئێستای دیارە.");
+            const currentMcap = window.currentCoinMcap;
+
+            if (!buyMcap || !investAmount || !currentMcap) {
+                alert("تکایە سەرەتا مارکێت کەپی کڕین و بڕی پارەکە بە دروستی بنووسە، وە دڵنیابە کە دراوێک گەڕاویت و مارکێت کەپی ئێستای دیارە.");
                 return;
             }
 
             // حیساباتی دروست بۆ کڕین (بڕینی گازی کڕین و باجی کڕین لە پارە ئەسڵییەکە)
             const buyTaxAmount = investAmount * (taxPercent / 100);
             const investAfterBuyCosts = investAmount - buyTaxAmount - gasFee;
-            const coinsBought = investAfterBuyCosts / buyPrice;
-            
-            // حیساباتی دروست بۆ فرۆشتن (لێدەرکردنی باجی فرۆشتن و گازی فرۆشتن لە کاتی ئێستادا)
-            const currentGrossValue = coinsBought * currentPrice;
+
+            // حیساباتی دروست بۆ فرۆشتن (بەپێی گەشەی مارکێت کەپ)
+            const mcapRatio = currentMcap / buyMcap;
+            const currentGrossValue = investAfterBuyCosts * mcapRatio;
             const sellTaxAmount = currentGrossValue * (taxPercent / 100);
             const finalNetValue = currentGrossValue - sellTaxAmount - gasFee;
 
             const profitLossAmount = finalNetValue - investAmount;
             const profitLossPercent = (profitLossAmount / investAmount) * 100;
-            
+
             // حیسابکردنی کات بۆ ئەوەی بزانێت چەند ڕۆژ و کاتژمێر بەسەر کڕینەکەدا تێپەڕیوە
             let timePassedText = "";
             if (buyDate) {
@@ -1573,7 +1609,7 @@
                     timePassedText = `<br><span style="color:#2962ff; font-weight:bold; font-size: 0.8rem;">(تێپەڕبووی کڕین: ${days} ڕۆژ و ${hours} کاتژمێر پێش ئێستا)</span>`;
                 }
             }
-            
+
             // نیشاندانی خاڵی کڕین لەسەر چارتەکە (بۆ ئەوەی بەستراوە بێت بە چارتەکەوە)
             if (buyDate && window.chartData && window.candlestickSeries) {
                 const selectedTime = new Date(buyDate).getTime() / 1000;
@@ -1590,11 +1626,11 @@
                     }]);
                 }
             }
-            
+
             // وەرگرتنی ڕێژەی قازانج و زیان لە خانەکانەوە
             const tpPercent = parseFloat(document.getElementById('userTpPercent').value);
             const slPercent = parseFloat(document.getElementById('userSlPercent').value);
-            
+
             // سڕینەوەی هێڵەکانی پێشوو ئەگەر هەبن بۆ ئەوەی دووبارە نەبنەوە
             if (window.tpLine && window.candlestickSeries) {
                 window.candlestickSeries.removePriceLine(window.tpLine);
@@ -1607,7 +1643,9 @@
 
             // کێشانی هێڵی قازانج (TP) بە ڕەنگی سەوز
             if (!isNaN(tpPercent) && tpPercent > 0 && window.candlestickSeries) {
-                const tpPrice = buyPrice + (buyPrice * (tpPercent / 100));
+                const tpMcap = buyMcap + (buyMcap * (tpPercent / 100));
+                const supply = window.currentCoinMcap / window.currentCoinPrice;
+                const tpPrice = tpMcap / supply;
                 window.tpLine = window.candlestickSeries.createPriceLine({
                     price: tpPrice, color: '#00c853', lineWidth: 2, lineStyle: 2, axisLabelVisible: true, title: `TP (+${tpPercent}%)`,
                 });
@@ -1615,7 +1653,9 @@
 
             // کێشانی هێڵی زیان (SL) بە ڕەنگی سوور
             if (!isNaN(slPercent) && slPercent > 0 && window.candlestickSeries) {
-                const slPrice = buyPrice - (buyPrice * (slPercent / 100));
+                const slMcap = buyMcap - (buyMcap * (slPercent / 100));
+                const supply = window.currentCoinMcap / window.currentCoinPrice;
+                const slPrice = slMcap / supply;
                 window.slLine = window.candlestickSeries.createPriceLine({
                     price: slPrice, color: '#ff5252', lineWidth: 2, lineStyle: 2, axisLabelVisible: true, title: `SL (-${slPercent}%)`,
                 });
@@ -1630,7 +1670,7 @@
                 bgColor = "rgba(0, 200, 83, 0.1)";
                 borderColor = "rgba(0, 200, 83, 0.3)";
                 statusText = `<span style="color: #00c853; font-weight: bold;">قازانج: +$${profitLossAmount.toFixed(2)} (+${profitLossPercent.toFixed(2)}%) 🟢</span>`;
-                
+
                 if (profitLossPercent >= 100) {
                     adviceText = "پیرۆزە! پارەکەت دوو هێندە یان زیاتر بووە. باشترین کار ئەوەیە ئەسڵی پارەکەت (بڕی وەبەرهێنان) دەربهێنیت و ئەوەی تر وەک قازانج بهێڵیتەوە.";
                 } else if (profitLossPercent >= 20) {
@@ -1642,7 +1682,7 @@
                 bgColor = "rgba(255, 82, 82, 0.1)";
                 borderColor = "rgba(255, 82, 82, 0.3)";
                 statusText = `<span style="color: #ff5252; font-weight: bold;">زیان: -$${Math.abs(profitLossAmount).toFixed(2)} (${profitLossPercent.toFixed(2)}%) 🔴</span>`;
-                
+
                 if (profitLossPercent <= -50) {
                     adviceText = "زیانێکی زۆر گەورەیە! ئەگەر بڕوات بە پڕۆژەکە هەیە دەتوانیت لێرەدا بڕێک بکڕیتەوە (DCA) بۆ ئەوەی تێکڕای نرخی کڕینت دابەزێت. ئەگەرنا باترە بوەستیت و نەیفرۆشیت لەم نزمترین ئاستەدا.";
                 } else if (profitLossPercent <= -15) {
@@ -1666,7 +1706,7 @@
 
         // فەنکشن بۆ پاشەکەوتکردنی زانیارییەکانی مامەڵە
         function saveTradeSettings() {
-            const buyPrice = document.getElementById('userBuyPrice').value;
+            const buyMcap = document.getElementById('userBuyMcap').value;
             const investAmount = document.getElementById('userInvestAmount').value;
             const buyDate = document.getElementById('userBuyDate').value;
             const taxPercent = document.getElementById('userTaxPercent').value;
@@ -1674,7 +1714,7 @@
             const tpPercent = document.getElementById('userTpPercent').value;
             const slPercent = document.getElementById('userSlPercent').value;
 
-            localStorage.setItem('trade_settings', JSON.stringify({ buyPrice, investAmount, buyDate, taxPercent, gasFee, tpPercent, slPercent }));
+            localStorage.setItem('trade_settings', JSON.stringify({ buyMcap, investAmount, buyDate, taxPercent, gasFee, tpPercent, slPercent }));
             alert("زانیارییەکان بە سەرکەوتوویی پاشەکەوت کران! جاری داهاتوو خۆیان دەنووسرێنەوە.");
         }
 
@@ -1683,17 +1723,17 @@
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
-                    if (data.buyPrice) document.getElementById('userBuyPrice').value = data.buyPrice;
+                    if (data.buyMcap) document.getElementById('userBuyMcap').value = data.buyMcap;
                     if (data.investAmount) document.getElementById('userInvestAmount').value = data.investAmount;
                     if (data.buyDate) document.getElementById('userBuyDate').value = data.buyDate;
                     if (data.taxPercent) document.getElementById('userTaxPercent').value = data.taxPercent;
                     if (data.gasFee) document.getElementById('userGasFee').value = data.gasFee;
                     if (data.tpPercent) document.getElementById('userTpPercent').value = data.tpPercent;
                     if (data.slPercent) document.getElementById('userSlPercent').value = data.slPercent;
-                } catch(e) {}
+                } catch (e) { }
             }
         }
-        
+
         // فەنکشن بۆ هێنانی نرخی دراوەکە بە شێوەی ئۆتۆماتیکی لەسەر چارتەکە بەپێی کات
         function autoFillBuyPrice() {
             const dateVal = document.getElementById('userBuyDate').value;
@@ -1709,7 +1749,8 @@
             });
 
             if (closestCandle) {
-                document.getElementById('userBuyPrice').value = closestCandle.close;
+                const supply = window.currentCoinMcap / window.currentCoinPrice;
+                document.getElementById('userBuyMcap').value = (closestCandle.close * supply).toFixed(0);
                 if (window.candlestickSeries) {
                     window.candlestickSeries.setMarkers([{ time: closestCandle.time, position: 'belowBar', color: '#00c853', shape: 'arrowUp', text: 'خاڵی کڕین' }]);
                 }
@@ -1718,7 +1759,7 @@
 
         function resetTradeSettings() {
             if (confirm("دڵنیایت دەتەوێت هەموو خانەکان پاک بکەیتەوە؟")) {
-                document.getElementById('userBuyPrice').value = '';
+                document.getElementById('userBuyMcap').value = '';
                 document.getElementById('userInvestAmount').value = '';
                 document.getElementById('userBuyDate').value = '';
                 document.getElementById('userTaxPercent').value = '0';
@@ -1729,7 +1770,7 @@
                 if (slInput) slInput.value = '';
                 document.getElementById('tradeResult').style.display = 'none';
                 localStorage.removeItem('trade_settings');
-                
+
                 // سڕینەوەی نیشانەی سەر چارتەکە
                 if (window.candlestickSeries) window.candlestickSeries.setMarkers([]);
                 if (window.tpLine && window.candlestickSeries) {
@@ -1774,7 +1815,7 @@
                 };
                 container.appendChild(btn);
             });
-            
+
             // زیادکردنی دوگمەی سڕینەوە
             const clearBtn = document.createElement('button');
             clearBtn.style.cssText = 'background: rgba(255, 82, 82, 0.1); border: 1px solid rgba(255, 82, 82, 0.3); color: #ff5252; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: 0.3s; margin-right: auto;';
@@ -1789,6 +1830,36 @@
             if (confirm("دڵنیایت دەتەوێت مێژووی گەڕانەکانت بسڕیتەوە؟")) {
                 localStorage.removeItem('recent_searches');
                 renderRecentSearches();
+            }
+        }
+    
+
+        // دانانی ئایکۆنی دوگمەکە لە کاتی بارکردن
+        document.getElementById('themeToggle').innerHTML = isLightMode ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun" style="color:#ff9800;"></i>';
+
+        // بارکردنی داتا پاشەکەوتکراوەکان لە کاتی کردنەوەی پەڕەکە
+        loadTradeSettings();
+        renderRecentSearches();
+    
+
+        function toggleFullScreen() {
+            const chartContainer = document.getElementById('mainChartContainer');
+            if (!document.fullscreenElement) {
+                if (chartContainer.requestFullscreen) {
+                    chartContainer.requestFullscreen();
+                } else if (chartContainer.webkitRequestFullscreen) { /* Safari */
+                    chartContainer.webkitRequestFullscreen();
+                } else if (chartContainer.msRequestFullscreen) { /* IE11 */
+                    chartContainer.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) { /* Safari */
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { /* IE11 */
+                    document.msExitFullscreen();
+                }
             }
         }
     

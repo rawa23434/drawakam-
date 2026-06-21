@@ -26,12 +26,12 @@ app.use((req, res, next) => {
     if (req.path === '/login.html' || req.path.startsWith('/api/') || req.path.endsWith('.css') || req.path.endsWith('.js') || req.path.includes('font') || req.path.includes('logo')) {
         return next();
     }
-    
+
     // ئەگەر کۆکی نەبوو، بینێرە بۆ پەڕەی لۆگین
     if (req.cookies.auth_token !== 'logged_in_secret_key') {
         return res.redirect('/login.html');
     }
-    
+
     // ئەگەر کێشەی نەبوو با بڕواتە ناو ماڵپەڕەکە
     next();
 });
@@ -137,13 +137,13 @@ function fetchWithCache(url, cacheDurationMs) {
 // Helper to aggregate candle arrays (newest to oldest)
 function aggregateCandles(ohlcvList, targetSeconds) {
     if (!ohlcvList || ohlcvList.length === 0) return [];
-    
+
     // Sort oldest to newest for grouping
     const sorted = ohlcvList.slice().reverse();
     const aggregated = [];
     let currentPeriodStart = null;
     let currentCandle = null;
-    
+
     for (const candle of sorted) {
         const timestamp = candle[0];
         const open = parseFloat(candle[1]);
@@ -151,10 +151,10 @@ function aggregateCandles(ohlcvList, targetSeconds) {
         const low = parseFloat(candle[3]);
         const close = parseFloat(candle[4]);
         const volume = parseFloat(candle[5]);
-        
+
         // Find the period start for this timestamp
         const periodStart = Math.floor(timestamp / targetSeconds) * targetSeconds;
-        
+
         if (currentPeriodStart === null || periodStart !== currentPeriodStart) {
             // Push previous candle if exists
             if (currentCandle) {
@@ -178,12 +178,12 @@ function aggregateCandles(ohlcvList, targetSeconds) {
             currentCandle[5] += volume;                          // volume
         }
     }
-    
+
     // Push the last candle
     if (currentCandle) {
         aggregated.push(currentCandle);
     }
-    
+
     // Reverse back to newest to oldest
     return aggregated.reverse();
 }
@@ -195,7 +195,7 @@ async function resolvePool(network, tokenAddr) {
     if (memoryCache[cacheKey] && memoryCache[cacheKey].expiry > now) {
         return memoryCache[cacheKey].poolAddress;
     }
-    
+
     const tokenPoolsUrl = `https://api.geckoterminal.com/api/v2/networks/${network}/tokens/${tokenAddr}/pools?page=1`;
     try {
         const parsedPools = await fetchWithCache(tokenPoolsUrl, 24 * 3600 * 1000); // cache resolution for 24h
@@ -223,7 +223,7 @@ async function fetchCandlesRaw(network, poolAddr, type, aggregate) {
 app.get('/api/gecko-candles', async (req, res) => {
     const { network, pool, token, interval } = req.query;
     console.log(`[Gecko Candles] Request: network=${network}, pool=${pool}, token=${token}, interval=${interval}`);
-    
+
     // گۆڕینی ناوی تۆڕەکان بۆ ئەوەی لەگەڵ GeckoTerminal بگونجێت
     const gtNetworks = {
         "ethereum": "eth",
@@ -242,9 +242,97 @@ app.get('/api/gecko-candles', async (req, res) => {
         "blast": "blast",
         "sui": "sui",
         "tron": "tron",
-        "ton": "ton"
+        "ton": "ton",
+        "manta": "manta",
+        "mantle": "mantle",
+        "kava": "kava",
+        "celo": "celo",
+        "metis": "metis",
+        "opbnb": "opbnb",
+        "moonbeam": "moonbeam",
+        "moonriver": "moonriver",
+        "aurora": "aurora",
+        "boba": "boba",
+        "kcc": "kcc",
+        "heco": "heco",
+        "okc": "okc",
+        "harmony": "harmony",
+        "velas": "velas",
+        "oasis": "oasis",
+        "canto": "canto",
+        "mode": "mode",
+        "taiko": "taiko",
+        "zora": "zora",
+        "astar": "astar",
+        "astar_zkevm": "astar_zkevm",
+        "rootstock": "rsk",
+        "syscoin": "syscoin",
+        "conflux": "conflux",
+        "core": "core",
+        "klaytn": "klaytn",
+        "wemix": "wemix",
+        "step": "step",
+        "dogechain": "dogechain",
+        "elastos": "elastos",
+        "meter": "meter",
+        "telos": "telos",
+        "milkomeda": "milkomeda",
+        "aptos": "aptos",
+        "osmosis": "osmosis",
+        "ronin": "ronin",
+        "beam": "beam",
+        "shibarium": "shibarium",
+        "xlayer": "xlayer",
+        "zeta": "zetachain",
+        "filecoin": "filecoin",
+        "xdai": "xdai",
+        "gnosis": "xdai",
+        "polygon_zkevm": "polygon_zkevm",
+        "evmos": "evmos",
+        "coti": "coti",
+        "starknet": "starknet",
+        "sei": "sei",
+        "injective": "injective",
+        "neon": "neon",
+        "kardiachain": "kardiachain",
+        "theta": "theta",
+        "thundercore": "thundercore",
+        "smartbch": "smartbch",
+        "fuse": "fuse",
+        "sx": "sx",
+        "tomochain": "tomochain",
+        "wanchain": "wanchain",
+        "iotex": "iotex",
+        "bitgert": "bitgert",
+        "kucoin": "kcc",
+        "oasys": "oasys",
+        "combo": "combo",
+        "pzdc": "pzdc",
+        "pulsechain": "pulsechain",
+        "tenet": "tenet",
+        "merlin": "merlin",
+        "b2": "b2",
+        "map": "map",
+        "bevm": "bevm",
+        "kroma": "kroma",
+        "zkfair": "zkfair",
+        "manta_pacific": "manta",
+        "lightlink": "lightlink",
+        "fon": "fon",
+        "bouncebit": "bouncebit",
+        "xai": "xai",
+        "cyber": "cyber",
+        "fraxtal": "fraxtal",
+        "dydx": "dydx",
+        "nibiru": "nibiru",
+        "chiliz": "chiliz",
+        "lisk": "lisk",
+        "zeta_chain": "zetachain",
+        "holesky": "holesky",
+        "sepolia": "sepolia",
+        "bsc_testnet": "bsc_testnet"
     };
-    
+
     const gtNetwork = gtNetworks[network] || network;
 
     // دیاریکردنی جۆری کاتەکان
@@ -260,12 +348,12 @@ app.get('/api/gecko-candles', async (req, res) => {
     else if (lower === '1h') { type = 'hour'; aggregate = 1; }
     else if (lower === '4h') { type = 'hour'; aggregate = 4; }
     else if (lower === '1d') { type = 'day'; aggregate = 1; }
-    else if (lower === '1w') { 
+    else if (lower === '1w') {
         // لەبەر ئەوەی ١ هەفتە بە شێوەیەکی خۆماڵی لەلایەن GeckoTerminal پالپشتی ناکرێت، داتای ڕۆژانە وەردەگرین و کۆمپیڵدەری دەکەین
-        type = 'day'; 
-        aggregate = 1; 
-        needsAggregation = true; 
-        targetSeconds = 7 * 24 * 3600; 
+        type = 'day';
+        aggregate = 1;
+        needsAggregation = true;
+        targetSeconds = 7 * 24 * 3600;
     }
 
     // هێنانی داتا لە پولێکی دیاریکراو
@@ -309,7 +397,7 @@ app.get('/api/gecko-candles', async (req, res) => {
             return res.json(result);
         } catch (err) {
             console.warn(`[Gecko Candles] First fetch failed for pool ${pool}: ${err.message}`);
-            
+
             // ئەگەر دەستبەجێ پولەکە کاری نەکرد، هەوڵبدە لە ڕێگەی کانتراکتی دراوەکە خۆیەوە پولەکە بدۆزیتەوە لە GeckoTerminal
             if (token && token.trim() !== "" && pool !== token) {
                 console.log(`[Gecko Candles] Attempting pool resolution for token ${token}`);
@@ -334,7 +422,7 @@ app.get('/api/gecko-candles', async (req, res) => {
 // API Proxy بۆ GoPlus Token Security بۆ ڕێگری لە کێشەی CORS
 app.get('/api/security', (req, res) => {
     const { chain, address } = req.query;
-    
+
     let url;
     if (chain === "solana") {
         url = `https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${address}`;
@@ -461,7 +549,7 @@ app.get('/api/news', async (req, res) => {
 
                     // Get top 5 news articles
                     const topItems = items.slice(0, 5);
-                    
+
                     // Translate concurrently
                     const translatedItems = await Promise.all(topItems.map(async (item) => {
                         let englishTitle = item.title;
