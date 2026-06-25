@@ -148,10 +148,11 @@ function renderChartData(formattedData, isRefresh = false) {
             volumeSeries = priceChart.addHistogramSeries({
                 color: '#26a69a',
                 priceFormat: { type: 'volume' },
-                priceScaleId: '', // دانانی لەسەر هەمان چارت
+                priceScaleId: 'volume_scale', // بەستنەوەی بە پێوەری نرخی تایبەت
             });
-            priceChart.priceScale('').applyOptions({
-                scaleMargins: { top: 0.8, bottom: 0 }, // تەنها %20ی بەشی خوارەوە بگرێت
+            // ڕێکخستنی پێوەری نرخی ڤۆلیۆم بۆ ئەوەی لە خوارەوە بێت
+            priceChart.priceScale('volume_scale').applyOptions({
+                scaleMargins: { top: 0.8, bottom: 0 }, // 80% بۆشایی لە سەرەوەی بەشی ڤۆلیۆم
             });
             
             rsiChart = LightweightCharts.createChart(rsiContainer, { 
@@ -178,11 +179,12 @@ function renderChartData(formattedData, isRefresh = false) {
         }
 
         // دڵنیابوونەوە لەوەی قەبارەی هێڵکارییەکە ڕاستە ئەگەر دەفرەکە پێشتر شاراوە بووبێت
-        // بەکارهێنانی fallback ئەگەر clientWidth سفر بوو
-        const currentWidth = document.getElementById('price-chart').clientWidth || 800;
-        priceChart.resize(currentWidth, 500);
-        rsiChart.resize(currentWidth, 150);
-        macdChart.resize(currentWidth, 150);
+        if (!isRefresh) {
+            const currentWidth = document.getElementById('price-chart').clientWidth || 800;
+            priceChart.resize(currentWidth, 500);
+            if (rsiChart) rsiChart.resize(currentWidth, 150);
+            if (macdChart) macdChart.resize(currentWidth, 150);
+        }
 
         candlestickSeries.setData(formattedData);
 
@@ -246,6 +248,15 @@ function setupRealtimeUpdates(symbol) {
 
     currentWs.onopen = () => {
         currentWs.send(JSON.stringify({ type: 'SUBSCRIBE', symbol: symbol }));
+    };
+
+    currentWs.onclose = () => {
+        console.log("WebSocket disconnected. Reconnecting in 3 seconds...");
+        setTimeout(() => {
+            if (window.currentIsBinance) {
+                setupRealtimeUpdates(symbol);
+            }
+        }, 3000);
     };
 
     currentWs.onmessage = (event) => {
@@ -370,49 +381,131 @@ window.generateMemeReversalSignals = function(data, securityData) {
             return [];
         }
     }
+    
+    if (!data || data.length < 15) return [];
 
-    // لوپەکە لە ئیندێکسی 3 دەستپێدەکات (بۆ 3 مۆمی پێشوو) و لە پێش کۆتا مۆم دەوەستێت (بۆ 1 مۆمی داهاتوو)
-    for (let i = 3; i < data.length - 1; i++) {
+    const interval = window.currentInterval || '1h';
+    const isHigherTimeframe = ['1h', '2h', '4h', '1d'].includes(interval);
+    
+    // ئامادەکردنی ئیندیکاتۆرەکان بۆ بەهێزکردنی سیگناڵ
+    const rsiMap = new Map(calculateRSI(data, 14).map(d => [d.time, d.value]));
+    
+    // ئامادەکردنی هێڵەکانی بۆلینجەر (Bollinger Bands)
+    const bbData = calculateBollingerBands(data, 20, 2);
+    const bbMap = new Map();
+    for (let i = 0; i < bbData.lower.length; i++) {
+        bbMap.set(bbData.lower[i].time, { lower: bbData.lower[i].value, upper: bbData.upper[i].value });
+    }
+
+    // ئامادەکردنی MACD بۆ فریمە بچووکەکان
+    const macdData = calculateMACD(data);
+    const macdMap = new Map(macdData.histogram.map(d => [d.time, d.value]));
+
+    for (let i = 10; i < data.length - 1; i++) {
         const current = data[i];
         const next = data[i + 1];
-        const prev1 = data[i - 1];
-        const prev2 = data[i - 2];
-        const prev3 = data[i - 3];
+        const prev = data[i - 1];
+        
+        // وەرگرتنی نرخی ئیندیکاتۆرەکان
+        const currentRsi = rsiMap.get(current.time);
+        const currentBb = bbMap.get(current.time);
+        const currentMacdHist = macdMap.get(current.time);
+        const prevMacdHist = macdMap.get(prev.time);
+        
+        // فلتەری توندی بۆلینجەر (Squeeze Filter) - ئەگەر بۆلینجەر زۆر تەسک بێت سیگناڵ نادات
+        let isSqueezed = false;
+        if (currentBb) {
+            const bbWidth = (currentBb.upper - currentBb.lower) / currentBb.lower;
+            if (bbWidth < 0.02) isSqueezed = true; // ئەگەر پانییەکەی کەمتر بێت لە %2، بازاڕ وەستاوە
+        }
+        
+        if (isSqueezed && !isHigherTimeframe) continue; // بۆ فریمە بچووکەکان کاتی وەستان سیگناڵ نادات
 
-        // 1. فلتەری دەنگ (Anti-Fake Filter): قەبارە دەبێت %150 ی تێکڕای 3 مۆمی پێشوو بێت
-        const avgVol3 = (prev1.volume + prev2.volume + prev3.volume) / 3;
-        const hasVolumeSpike = current.volume >= (avgVol3 * 1.5);
+        const lookback = isHigherTimeframe ? 5 : 3;
+        let sumVol = 0;
+        for (let j = 1; j <= lookback; j++) {
+            sumVol += data[i - j].volume;
+        }
+        const avgVol = sumVol / lookback;
+        
+        const volumeMultiplier = isHigherTimeframe ? 2.0 : 1.5;
+        const hasVolumeSpike = current.volume >= (avgVol * volumeMultiplier);
 
-        if (!hasVolumeSpike) continue; // ئەگەر قەبارە کەم بوو، سیگناڵەکە پشتگوێ بخە
+        if (!hasVolumeSpike) continue; 
 
-        // 2. خوارەوەی ناوخۆیی (BUY THE DIP)
-        const isLocalBottom = current.low < Math.min(prev1.low, prev2.low, prev3.low);
-        const isCurrentGreen = current.close > current.open; // مۆمی ئێستا سەوزە
-        const isNextGreen = next.close > next.open;          // مۆمی پشتڕاستکردنەوە سەوزە
+        const currentBody = Math.abs(current.close - current.open);
+        const lowerWick = Math.min(current.open, current.close) - current.low;
+        const upperWick = current.high - Math.max(current.open, current.close);
+        const nextBody = Math.abs(next.close - next.open);
 
-        if (isLocalBottom && isCurrentGreen && isNextGreen) {
+        // ====================================================
+        // 1. خوارەوەی ناوخۆیی (BUY THE DIP)
+        // ====================================================
+        let isLocalBottom = true;
+        for (let j = 1; j <= 3; j++) {
+            if (current.low >= data[i - j].low) isLocalBottom = false;
+        }
+        
+        const isCurrentGreen = current.close > current.open; 
+        const isNextGreen = next.close > next.open; 
+        
+        const hasLowerRejection = isHigherTimeframe ? (lowerWick >= currentBody * 0.8) : true;
+        const hasStrongConfirmationBuy = isHigherTimeframe ? (next.close > current.open || nextBody >= currentBody * 0.5) : true;
+        
+        let buyIndicatorsValid = true;
+        if (isHigherTimeframe && currentRsi !== undefined && currentBb !== undefined) {
+            const rsiValid = currentRsi < 45;
+            const bbValid = current.low <= currentBb.lower * 1.01; 
+            buyIndicatorsValid = rsiValid && bbValid;
+        } else if (!isHigherTimeframe && currentMacdHist !== undefined && prevMacdHist !== undefined) {
+            // بۆ فریمە بچووکەکان، MACD دەبێت ئاماژە بە پێچەوانەبوونەوە بکات (Histogram لە دابەزینەوە بگەڕێتەوە یان سەوز بێت)
+            const macdReversingUp = currentMacdHist > prevMacdHist;
+            buyIndicatorsValid = macdReversingUp;
+        }
+
+        if (isLocalBottom && isCurrentGreen && isNextGreen && hasLowerRejection && hasStrongConfirmationBuy && buyIndicatorsValid) {
             markers.push({
                 time: current.time,
                 position: 'belowBar',
                 color: '#26a69a',
                 shape: 'arrowUp',
-                text: '🔥 MEME DIP / BUY'
+                text: isHigherTimeframe ? '🟢 STRONG BUY' : '🔥 MEME DIP'
             });
-            continue; // ئەگەر کڕین بوو، بەردەوام بە بۆ مۆمی داهاتوو
+            continue; 
         }
 
-        // 3. لوتکەی ناوخۆیی (SELL THE PEAK)
-        const isLocalTop = current.high > Math.max(prev1.high, prev2.high, prev3.high);
-        const isCurrentRed = current.close < current.open; // مۆمی ئێستا سوورە
-        const isNextRed = next.close < next.open;          // مۆمی پشتڕاستکردنەوە سوورە
+        // ====================================================
+        // 2. لوتکەی ناوخۆیی (SELL THE PEAK)
+        // ====================================================
+        let isLocalTop = true;
+        for (let j = 1; j <= 3; j++) {
+            if (current.high <= data[i - j].high) isLocalTop = false;
+        }
 
-        if (isLocalTop && isCurrentRed && isNextRed) {
+        const isCurrentRed = current.close < current.open; 
+        const isNextRed = next.close < next.open;          
+        
+        const hasUpperRejection = isHigherTimeframe ? (upperWick >= currentBody * 0.8) : true;
+        const hasStrongConfirmationSell = isHigherTimeframe ? (next.close < current.open || nextBody >= currentBody * 0.5) : true;
+        
+        let sellIndicatorsValid = true;
+        if (isHigherTimeframe && currentRsi !== undefined && currentBb !== undefined) {
+            const rsiValid = currentRsi > 55;
+            const bbValid = current.high >= currentBb.upper * 0.99;
+            sellIndicatorsValid = rsiValid && bbValid;
+        } else if (!isHigherTimeframe && currentMacdHist !== undefined && prevMacdHist !== undefined) {
+            // بۆ فریمە بچووکەکان، MACD دەبێت ئاماژە بە پێچەوانەبوونەوە بکات (Histogram لە بەرزبوونەوە بگەڕێتەوە یان سوور بێت)
+            const macdReversingDown = currentMacdHist < prevMacdHist;
+            sellIndicatorsValid = macdReversingDown;
+        }
+
+        if (isLocalTop && isCurrentRed && isNextRed && hasUpperRejection && hasStrongConfirmationSell && sellIndicatorsValid) {
             markers.push({
                 time: current.time,
                 position: 'aboveBar',
                 color: '#ef5350',
                 shape: 'arrowDown',
-                text: '🚨 MEME PEAK / SELL'
+                text: isHigherTimeframe ? '🔴 STRONG SELL' : '🚨 MEME PEAK'
             });
         }
     }
@@ -421,7 +514,7 @@ window.generateMemeReversalSignals = function(data, securityData) {
 };
 
 // جێبەجێکردنی ئەلگۆریتمەکە و نەخشەسازی لەسەر چارتەکە (Plotting)
-window.applyMemeSignalsToChart = function(securityData, chainMetricsData = null) {
+window.applyMemeSignalsToChart = function(securityData) {
     if (!window.chartData || !window.candlestickSeries) return;
 
     const data = window.chartData;
@@ -432,4 +525,89 @@ window.applyMemeSignalsToChart = function(securityData, chainMetricsData = null)
     // پاراستنی هەر نیشانەیەکی پێشوو (وەک خاڵی کڕینی پۆرتفۆلیۆ) ئەگەر هەبوو
     const existingMarkers = window.customTradeMarkers || []; 
     window.candlestickSeries.setMarkers([...existingMarkers, ...newMarkers]);
+};
+
+// ڕێکخستنەوەی قەبارەی چارتەکان لە کاتی گۆڕانی قەبارەی پەنجەرە (شاشە)
+window.addEventListener('resize', () => {
+    if (priceChart) {
+        const currentWidth = document.getElementById('price-chart').clientWidth || 800;
+        priceChart.resize(currentWidth, 500);
+        if (rsiChart) rsiChart.resize(currentWidth, 150);
+        if (macdChart) macdChart.resize(currentWidth, 150);
+    }
+});
+
+// Advanced Candlestick Pattern Detection (بەهێزکراو بە ئیندیکاتۆرەکان)
+window.detectCandlePatterns = function(candles) {
+    if (!candles || candles.length < 15) return { hasHammer: false, hasShootingStar: false, hasBullishEngulfing: false, hasBearishEngulfing: false };
+    
+    // وەرگرتنی پێوەری RSI بۆ دڵنیابوونەوە لەوەی لە ناوچەیەکی گونجاوداین (زۆر کڕدراو یان زۆر فرۆشراو)
+    const rsiData = calculateRSI(candles, 14);
+    const currentRsi = rsiData.length > 0 ? rsiData[rsiData.length - 1].value : 50;
+    const prevRsi = rsiData.length > 1 ? rsiData[rsiData.length - 2].value : 50;
+
+    const curr = candles[candles.length - 1]; 
+    const prev = candles[candles.length - 2];
+    
+    // حیسابکردنی تێکڕای قەبارەی مامەڵەی ٥ مۆمی پێشوو بۆ دڵنیابوونەوە لە بوونی هێز
+    let sumVol = 0;
+    for (let i = 2; i <= 6; i++) {
+        if (candles[candles.length - i]) {
+            sumVol += candles[candles.length - i].volume;
+        }
+    }
+    const avgVol = sumVol / 5;
+
+    // مەرجەکانی چەکوش (Hammer)
+    const isHammer = (candle, rsiValue) => {
+        const bodyLength = Math.abs(candle.close - candle.open);
+        const lowerWick = Math.min(candle.open, candle.close) - candle.low;
+        const upperWick = candle.high - Math.max(candle.open, candle.close);
+        const totalLength = candle.high - candle.low;
+        if (totalLength === 0) return false;
+        
+        // مەرجەکان: کلکی خوارەوە درێژ بێت، کلکی سەرەوە کورت بێت، قەبارە بەرز بێت، وە RSI لە خوار ٤٥ بێت (واتە بازاڕ دابەزیوە)
+        const shapeValid = lowerWick >= 1.5 * bodyLength && upperWick <= totalLength * 0.25 && bodyLength > 0;
+        const contextValid = candle.volume >= avgVol * 1.2 && rsiValue < 45;
+        return shapeValid && contextValid;
+    };
+
+    // مەرجەکانی ئەستێرەی کشاو (Shooting Star)
+    const isShootingStar = (candle, rsiValue) => {
+        const bodyLength = Math.abs(candle.close - candle.open);
+        const lowerWick = Math.min(candle.open, candle.close) - candle.low;
+        const upperWick = candle.high - Math.max(candle.open, candle.close);
+        const totalLength = candle.high - candle.low;
+        if (totalLength === 0) return false;
+        
+        // مەرجەکان: کلکی سەرەوە درێژ بێت، قەبارە بەرز بێت، وە RSI لە سەرووی ٥٥ بێت
+        const shapeValid = upperWick >= 1.5 * bodyLength && lowerWick <= totalLength * 0.25 && bodyLength > 0;
+        const contextValid = candle.volume >= avgVol * 1.2 && rsiValue > 55;
+        return shapeValid && contextValid;
+    };
+
+    // قوتدانی سەوز (Bullish Engulfing)
+    const isBullishEngulfing = (prev, curr, rsiValue) => {
+        const prevIsRed = prev.close < prev.open;
+        const currIsGreen = curr.close > curr.open;
+        const shapeValid = prevIsRed && currIsGreen && curr.close >= prev.open && curr.open <= prev.close;
+        const contextValid = curr.volume >= avgVol * 1.2 && rsiValue < 45;
+        return shapeValid && contextValid;
+    };
+
+    // قوتدانی سوور (Bearish Engulfing)
+    const isBearishEngulfing = (prev, curr, rsiValue) => {
+        const prevIsGreen = prev.close > prev.open;
+        const currIsRed = curr.close < curr.open;
+        const shapeValid = prevIsGreen && currIsRed && curr.close <= prev.open && curr.open >= prev.close;
+        const contextValid = curr.volume >= avgVol * 1.2 && rsiValue > 55;
+        return shapeValid && contextValid;
+    };
+
+    return {
+        hasHammer: isHammer(curr, currentRsi) || isHammer(prev, prevRsi),
+        hasShootingStar: isShootingStar(curr, currentRsi) || isShootingStar(prev, prevRsi),
+        hasBullishEngulfing: isBullishEngulfing(prev, curr, currentRsi),
+        hasBearishEngulfing: isBearishEngulfing(prev, curr, currentRsi)
+    };
 };
