@@ -30,20 +30,7 @@
 <body>
 
     <div class="container">
-        <!-- لیستی دەروازە (Navigation Menu) -->
-        <div
-            style="display: flex; justify-content: center; gap: 15px; margin-bottom: 25px; padding: 10px; background: var(--bg-panel); border-radius: 12px; border: 1px solid var(--border-color); max-width: 500px; margin-left: auto; margin-right: auto;">
-            <a href="index.html"
-                style="flex: 1; text-align: center; padding: 10px; border-radius: 8px; background: #2962ff; color: white; text-decoration: none; font-weight: bold; transition: 0.3s; box-shadow: 0 4px 12px rgba(41, 98, 255, 0.3);">
-                <i class="fas fa-dog"></i> شیکاری میمکۆینەکان
-            </a>
-            <a href="topcoins.html"
-                style="flex: 1; text-align: center; padding: 10px; border-radius: 8px; background: transparent; color: var(--text-muted); text-decoration: none; font-weight: bold; border: 1px solid var(--border-color); transition: 0.3s;"
-                onmouseover="this.style.color='var(--text-main)'; this.style.borderColor='#2962ff';"
-                onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--border-color)';">
-                <i class="fas fa-coins"></i> دراوە سەرەکییەکان
-            </a>
-        </div>
+
         <div style="position: relative; text-align: center;">
             <button id="themeToggle" onclick="toggleTheme()" class="theme-btn"></button>
             <h1>ماڵپەڕی پێشکەوتووی شیکاری دراوەکان</h1>
@@ -243,6 +230,7 @@
                                 onclick="updateTechnicalAnalysis(window.lastSearchedSymbol, '1d')">1D</button>
                         </div>
                     </div>
+                    <div id="aiScoreContainer" style="margin-bottom: 15px;"></div>
                     <div id="techContent" style="position: relative;"></div>
                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; text-align: center;">
                         * تێبینی: ئەگەر دراوەکە زۆر نوێ بێت (Meme coin)، ڕەنگە ئەم بەشە کار نەکات چونکە TradingView
@@ -259,10 +247,8 @@
     </div>
 
     <!-- بارکردنی کتێبخانەی Lightweight Charts و فایلی لۆجیک -->
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="app.min.js"></script>
-    <script>
-</script>
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="app.js?v=8"></script>
     <script>
         // بەڕێوەبردنی دۆخی ڕووناکی و تاریكی (Dark/Light Mode)
         let isLightMode = localStorage.getItem('theme') === 'light';
@@ -406,6 +392,7 @@
                 }
 
                 if (!data || data.length < 20) {
+                    if (window.setAIScoreReady) window.setAIScoreReady('tech', 'HOLD');
                     widgetDiv.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">داتای پێویست بەردەست نییە بۆ شیکاری ئەم کاتە</div>';
                     return;
                 }
@@ -690,6 +677,15 @@
                         overallExplanation = `لە تایمفرەیمی <strong>${timeframeNameKurdish}</strong>دا، ئیندیکاتۆرەکان هاوسەنگن یان دەنگی دژیەک دەدەن.`;
                     }
                 }
+
+                // --- UPDATE AI SCORE STATE ---
+                if (window.aiScoreData) {
+                    window.aiScoreData.techReady = true;
+                    if (isBuyCondition || buyVotes >= 4) window.aiScoreData.techAction = "BUY";
+                    else if (isSellCondition || sellVotes >= 4) window.aiScoreData.techAction = "SELL";
+                    else window.aiScoreData.techAction = "HOLD";
+                    if (window.evaluateAIScore) window.evaluateAIScore();
+                }
                 // هەژمارکردنی ئاستی کڕین و فرۆشتنی پێشنیارکراو بە لێکدانەوەی بۆڵینگەر باند
                 const bbData = calculateBollingerBands(data, 20, 2);
                 const lastBbUpper = bbData.upper.length > 0 ? bbData.upper[bbData.upper.length - 1].value : lastCandle.close * 1.15;
@@ -880,6 +876,7 @@
                 </div>
             `;
             } catch (err) {
+                if (window.setAIScoreReady) window.setAIScoreReady('tech', 'HOLD');
                 console.error("Error updating technical analysis:", err);
                 widgetDiv.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">هەڵەیەک ڕوویدا لە بارکردنی داتای شیکاری تەکنیکی</div>';
             }
@@ -947,6 +944,23 @@
                         </div>
                     `;
 
+                    // --- UPDATE AI SCORE STATE ---
+                    let newsScore = 0;
+                    let positiveWords = ['هەڵدان', 'بەرزبوونەوە', 'کڕین', 'پۆزەتیڤ', 'سوود', 'قازانج', 'pump', 'bullish', 'listing', 'partnership', 'surge', 'buy', 'up', 'moon'];
+                    let negativeWords = ['دابەزین', 'فرۆشتن', 'نەرێنی', 'هێرش', 'خراپ', 'مەترسی', 'scam', 'hack', 'dump', 'bearish', 'sell', 'lawsuit', 'crash', 'down'];
+                    newsItems.forEach(item => {
+                        const titleLower = (item.titleEnglish + " " + item.titleKurdish).toLowerCase();
+                        positiveWords.forEach(word => { if (titleLower.includes(word)) newsScore++; });
+                        negativeWords.forEach(word => { if (titleLower.includes(word)) newsScore--; });
+                    });
+                    if (window.aiScoreData) {
+                        window.aiScoreData.newsReady = true;
+                        if (newsScore >= 1) window.aiScoreData.newsAction = "BUY";
+                        else if (newsScore <= -1) window.aiScoreData.newsAction = "SELL";
+                        else window.aiScoreData.newsAction = "HOLD";
+                        if (window.evaluateAIScore) window.evaluateAIScore();
+                    }
+
                     widgetDiv.innerHTML = html;
 
                     // Add smooth interactive effects via JS
@@ -983,6 +997,7 @@
                 });
 
             function renderNoNews() {
+                if (window.setAIScoreReady) window.setAIScoreReady('news', 'HOLD');
                 widgetDiv.innerHTML = `
                     <div style="padding: 15px; background: var(--bg-input); border-radius: 8px; border: 1px solid var(--border-color); text-align: center;">
                         <div style="font-size: 1.1rem; font-weight: bold; color: var(--text-muted); margin-bottom: 10px;">
@@ -1097,6 +1112,73 @@
             }
         }
 
+        window.setAIScoreReady = function(type, action) {
+            if (window.aiScoreData) {
+                if (type === 'tech') { window.aiScoreData.techReady = true; window.aiScoreData.techAction = action || 'HOLD'; }
+                if (type === 'news') { window.aiScoreData.newsReady = true; window.aiScoreData.newsAction = action || 'HOLD'; }
+                if (type === 'whale') { window.aiScoreData.whaleReady = true; window.aiScoreData.whaleAction = action || 'HOLD'; }
+                if (window.evaluateAIScore) window.evaluateAIScore();
+            }
+        };
+
+        window.evaluateAIScore = function() {
+            const aiContainer = document.getElementById("aiScoreContainer");
+            if (!aiContainer) return;
+            
+            // تەنها ئەگەر هەر سێ داتاکە ئامادە بوون
+            if (!window.aiScoreData || !window.aiScoreData.techReady || !window.aiScoreData.newsReady || !window.aiScoreData.whaleReady) {
+                aiContainer.innerHTML = `
+                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; text-align: center;">
+                        <i class="fas fa-brain fa-spin" style="color: #2962ff; font-size: 1.5rem; margin-bottom: 10px;"></i>
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">خەریکی شیکاری زیرەکی دەستکردە بۆ داتاکان...</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const { techAction, newsAction, whaleAction } = window.aiScoreData;
+            
+            let finalStatus = "بازاڕ ناجێگیرە (HOLD)";
+            let finalColor = "#ff9800"; // زەرد
+            let bgStyle = "rgba(255, 152, 0, 0.1)";
+            let finalIcon = "⚖️";
+            
+            if (techAction === "BUY" && newsAction === "BUY" && whaleAction === "BUY") {
+                finalStatus = "سیگناڵی زلهێز: کاتی کڕینە! 🚀";
+                finalColor = "#00c853";
+                bgStyle = "linear-gradient(45deg, rgba(0, 200, 83, 0.2), rgba(0, 200, 83, 0.05))";
+                finalIcon = "🔥";
+            } else if (techAction === "SELL" && newsAction === "SELL" && whaleAction === "SELL") {
+                finalStatus = "سیگناڵی زلهێز: خێرا بفرۆشە! 🚨";
+                finalColor = "#ff5252";
+                bgStyle = "linear-gradient(45deg, rgba(255, 82, 82, 0.2), rgba(255, 82, 82, 0.05))";
+                finalIcon = "💥";
+            } else if (techAction === "BUY" && whaleAction === "BUY") {
+                finalStatus = "سیگناڵی باش: کڕین (بەڵام هەواڵەکان بێلایەنن)";
+                finalColor = "#00e676";
+                bgStyle = "rgba(0, 200, 83, 0.1)";
+                finalIcon = "🟢";
+            } else if (techAction === "SELL" && whaleAction === "SELL") {
+                finalStatus = "سیگناڵی باش: فرۆشتن (فرۆشیاران زاڵن)";
+                finalColor = "#ff1744";
+                bgStyle = "rgba(255, 82, 82, 0.1)";
+                finalIcon = "🔴";
+            }
+
+            aiContainer.innerHTML = `
+                <div style="background: ${bgStyle}; border: 2px solid ${finalColor}; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.1); text-align: center;">
+                    <div style="font-size: 1.5rem; margin-bottom: 5px;">${finalIcon}</div>
+                    <h3 style="color: ${finalColor}; margin: 0 0 5px 0; font-size: 1.2rem;">پۆینتی گشتیی AI (AI Score)</h3>
+                    <div style="color: var(--text-main); font-weight: bold; font-size: 1.1rem; margin-bottom: 10px;">${finalStatus}</div>
+                    <div style="display: flex; justify-content: center; gap: 15px; font-size: 0.8rem; background: var(--bg-card); padding: 8px; border-radius: 8px; display: inline-flex; border: 1px solid var(--border-color);">
+                        <div>تەکنیکی: <strong style="color: ${techAction==='BUY'?'#00c853':techAction==='SELL'?'#ff5252':'#ff9800'}">${techAction||'HOLD'}</strong></div>
+                        <div style="border-right: 1px solid var(--border-color); padding-right: 15px;">نهەنگ: <strong style="color: ${whaleAction==='BUY'?'#00c853':whaleAction==='SELL'?'#ff5252':'#ff9800'}">${whaleAction||'HOLD'}</strong></div>
+                        <div style="border-right: 1px solid var(--border-color); padding-right: 15px;">هەواڵ: <strong style="color: ${newsAction==='BUY'?'#00c853':newsAction==='SELL'?'#ff5252':'#ff9800'}">${newsAction||'HOLD'}</strong></div>
+                    </div>
+                </div>
+            `;
+        };
+
         async function searchContract() {
             const contractAddress = document.getElementById("contractInput").value.trim();
 
@@ -1104,6 +1186,18 @@
                 alert("تکایە سەرەتا کانتراکتێک بنووسە!");
                 return;
             }
+
+            // Reset AI Score state
+            window.aiScoreData = {
+                techReady: false,
+                newsReady: false,
+                whaleReady: false,
+                techAction: "HOLD", 
+                newsAction: "HOLD",
+                whaleAction: "HOLD"
+            };
+            const aiContainer = document.getElementById("aiScoreContainer");
+            if (aiContainer) aiContainer.innerHTML = "";
 
             const placeholder = document.getElementById('placeholderText');
             const leftPlaceholder = document.getElementById('leftPlaceholder');
@@ -1646,6 +1740,15 @@
                 }
             } else {
                 whaleAction = "<div style='margin-top: 10px; padding: 8px; background: var(--bg-card); border-radius: 6px;'><span style='color: var(--text-muted);'>🐟 خەڵکی ئاسایی مامەڵە دەکات، جوڵەی گەورە پێشبینی ناکرێت.</span></div>";
+            }
+
+            // --- UPDATE AI SCORE STATE ---
+            if (window.aiScoreData) {
+                window.aiScoreData.whaleReady = true;
+                if (avgTxSize > 1000 && buyRatioNum > 55) window.aiScoreData.whaleAction = "BUY";
+                else if (avgTxSize > 1000 && buyRatioNum < 45) window.aiScoreData.whaleAction = "SELL";
+                else window.aiScoreData.whaleAction = "HOLD";
+                if (window.evaluateAIScore) window.evaluateAIScore();
             }
 
             const whaleContent = document.getElementById("whaleContent");

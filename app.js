@@ -67,8 +67,10 @@ window.loadDexChart = async function(network, poolAddress, tokenAddress = '', is
         const response = await fetch(url);
         const rawData = await response.json();
 
-        if (!rawData.data || !rawData.data.attributes || !rawData.data.attributes.ohlcv_list) {
+        // ❗️ پێویستە دڵنیا بین کە داتا بەردەستە
+        if (!rawData || !rawData.data || !rawData.data.attributes || !rawData.data.attributes.ohlcv_list) {
             console.warn("GeckoTerminal data not available for this pool.");
+            alert("هیچ داتایەک لە GeckoTerminal دەستنەکەوت بۆ ئەم دراوە.");
             return false;
         }
 
@@ -82,12 +84,37 @@ window.loadDexChart = async function(network, poolAddress, tokenAddress = '', is
             volume: parseFloat(d[5])
         })).reverse(); // پێچەوانەی دەکەینەوە چونکە جیگکۆتێرمیناڵ نوێترین دەداتە سەرەتا
 
-        if (formattedData.length === 0) {
+        // ڕێگریکردن لە دووبارەبوونەوەی کاتەکان کە دەبێتە هۆی کراشی چارتەکە
+        const uniqueData = [];
+        const seenTimes = new Set();
+        for (const d of formattedData) {
+            if (!seenTimes.has(d.time)) {
+                seenTimes.add(d.time);
+                uniqueData.push(d);
+            }
+        }
+        
+        // دڵنیابوونەوە لەوەی کاتەکان بە تەواوی لە بچووکەوە بۆ گەورە ڕیزکراون
+        uniqueData.sort((a, b) => a.time - b.time);
+
+        const cleanData = uniqueData.filter(d => 
+            d.time != null && d.open != null && d.high != null && d.low != null && d.close != null && d.volume != null &&
+            !isNaN(d.time) && !isNaN(d.open) && !isNaN(d.high) && !isNaN(d.low) && !isNaN(d.close) && !isNaN(d.volume)
+        );
+
+        if (cleanData.length === 0) {
             console.warn("No candle data found for this pool.");
+            alert("داتای مۆمەکان بەتاڵە پاش فلتەرکردن.");
             return false;
         }
 
-        renderChartData(formattedData, isRefresh);
+        try {
+            renderChartData(cleanData, isRefresh);
+        } catch (renderError) {
+            alert("هەڵەیەک ڕوویدا لە کێشانی چارتەکە: " + renderError.message);
+            console.error("Render Chart Error:", renderError);
+            return false;
+        }
         
         // ڕاگرتنی ڵایڤی باینانس ئەگەر هەبوو، چونکە ئەمە دراوی دەرەوەیە
         if (currentWs) {
@@ -111,34 +138,42 @@ window.loadDexChart = async function(network, poolAddress, tokenAddress = '', is
 };
 
 function renderChartData(formattedData, isRefresh = false) {
-        const isLightMode = document.body.classList.contains('light-mode');
-        const bg = isLightMode ? '#ffffff' : '#131722';
-        const text = isLightMode ? '#131722' : '#d1d4dc';
-        const grid = isLightMode ? '#e0e3eb' : '#2a2e39';
-
-        const chartOptions = {
-            layout: { background: { color: bg }, textColor: text },
-            grid: { vertLines: { color: grid }, horzLines: { color: grid } },
-            timeScale: { borderColor: grid, timeVisible: true },
-            width: document.getElementById('price-chart').clientWidth || 800,
-            height: 500
-        };
-    
-    // هەڵگرتنی داتای چارتەکە بۆ ئەوەی بەشی مامەڵە بتوانێت بیخوێنێتەوە
     window.chartData = formattedData;
 
-        // دروستکردنی هێڵکارییەکان تەنها بۆ یەکجار (Singleton Pattern)
-        if (!priceChart) {
-            const priceContainer = document.getElementById('price-chart');
-            const rsiContainer = document.getElementById('rsi-chart');
-            const macdContainer = document.getElementById('macd-chart');
-            
-            priceChart = LightweightCharts.createChart(priceContainer, chartOptions);
-            candlestickSeries = priceChart.addCandlestickSeries({
-                upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
-                wickUpColor: '#26a69a', wickDownColor: '#ef5350'
-            });
-        window.candlestickSeries = candlestickSeries; // ئیکسپۆرتکردن بۆ دانانی نیشانە لەسەر چارت
+    if (priceChart && (!candlestickSeries || !volumeSeries || !smaSeries || !bbUpperSeries || !rsiSeries || !macdSeries)) {
+        console.warn("Some chart components are missing. Recreating charts...");
+        document.getElementById('price-chart').innerHTML = '';
+        if (document.getElementById('rsi-chart')) document.getElementById('rsi-chart').innerHTML = '';
+        if (document.getElementById('macd-chart')) document.getElementById('macd-chart').innerHTML = '';
+        priceChart = null;
+        rsiChart = null;
+        macdChart = null;
+    }
+
+    const isLightMode = document.body.classList.contains('light-mode');
+    const bg = isLightMode ? '#ffffff' : '#131722';
+    const text = isLightMode ? '#131722' : '#d1d4dc';
+    const grid = isLightMode ? '#e0e3eb' : '#2a2e39';
+
+    const chartOptions = {
+        layout: { background: { color: bg }, textColor: text },
+        grid: { vertLines: { color: grid }, horzLines: { color: grid } },
+        timeScale: { borderColor: grid, timeVisible: true },
+        width: document.getElementById('price-chart').clientWidth || 800,
+        height: 500
+    };
+
+    if (!priceChart) {
+        const priceContainer = document.getElementById('price-chart');
+        const rsiContainer = document.getElementById('rsi-chart');
+        const macdContainer = document.getElementById('macd-chart');
+        
+        priceChart = LightweightCharts.createChart(priceContainer, chartOptions);
+        candlestickSeries = priceChart.addCandlestickSeries({
+            upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+            wickUpColor: '#26a69a', wickDownColor: '#ef5350'
+        });
+        window.candlestickSeries = candlestickSeries;
         
             smaSeries = priceChart.addLineSeries({ color: '#2962ff', lineWidth: 2, title: 'SMA 20' });
             bbUpperSeries = priceChart.addLineSeries({ color: 'rgba(41, 98, 255, 0.4)', lineWidth: 1, title: 'BB Upper', lineStyle: 2 });
@@ -172,10 +207,12 @@ function renderChartData(formattedData, isRefresh = false) {
             signalSeries = macdChart.addLineSeries({ color: '#ff9800', lineWidth: 2, title: 'Signal' });
 
             // هاوکاتکردنی کاتی هەردوو هێڵکارییەکە
-            priceChart.timeScale().subscribeVisibleTimeRangeChange(range => {
-                rsiChart.timeScale().setVisibleRange(range);
-                macdChart.timeScale().setVisibleRange(range);
-            });
+        priceChart.timeScale().subscribeVisibleTimeRangeChange(range => {
+            if (range) {
+                if (rsiChart) rsiChart.timeScale().setVisibleRange(range);
+                if (macdChart) macdChart.timeScale().setVisibleRange(range);
+            }
+        });
         }
 
         // دڵنیابوونەوە لەوەی قەبارەی هێڵکارییەکە ڕاستە ئەگەر دەفرەکە پێشتر شاراوە بووبێت
@@ -186,7 +223,14 @@ function renderChartData(formattedData, isRefresh = false) {
             if (macdChart) macdChart.resize(currentWidth, 150);
         }
 
-        candlestickSeries.setData(formattedData);
+        if (!candlestickSeries) throw new Error("candlestickSeries is undefined");
+        
+        try {
+            // زۆر گرنگە: پاککردنەوەی نیشانەکانی پێشوو پێش تێکردنی داتای نوێ
+            // چونکە ئەگەر نیشانەی کۆن بمێنێت و کاتەکەی لە داتا نوێیەکەدا نەبێت، کراش دەکات و دەڵێت Value is null
+            candlestickSeries.setMarkers([]);
+            candlestickSeries.setData(formattedData);
+        } catch(e) { throw new Error("candlestickSeries.setData: " + e.message); }
 
         // تێکردنی داتای ڤۆلیۆم بە ڕەنگکردنی ستوونەکان
         const volumeData = formattedData.map(d => ({
@@ -194,20 +238,36 @@ function renderChartData(formattedData, isRefresh = false) {
             value: d.volume,
             color: d.close >= d.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
         }));
-        volumeSeries.setData(volumeData);
+        if (!volumeSeries) throw new Error("volumeSeries is undefined");
+        try {
+            volumeSeries.setData(volumeData);
+        } catch(e) { throw new Error("volumeSeries.setData: " + e.message); }
 
         // ئەنجامدانی حیساباتی ئیندیکاتۆرەکان
         const smaData = calculateSMA(formattedData, 20);
-        smaSeries.setData(smaData);
+        if (!smaSeries) throw new Error("smaSeries is undefined");
+        try {
+            smaSeries.setData(smaData);
+        } catch(e) { throw new Error("smaSeries.setData: " + e.message); }
 
         const bbData = calculateBollingerBands(formattedData, 20, 2);
-        bbUpperSeries.setData(bbData.upper);
-        bbLowerSeries.setData(bbData.lower);
+        if (!bbUpperSeries) throw new Error("bbUpperSeries is undefined");
+        if (!bbLowerSeries) throw new Error("bbLowerSeries is undefined");
+        try {
+            bbUpperSeries.setData(bbData.upper);
+            bbLowerSeries.setData(bbData.lower);
+        } catch(e) { throw new Error("bbSeries.setData: " + e.message); }
 
         const rsiData = calculateRSI(formattedData, 14);
-        rsiSeries.setData(rsiData);
+        if (!rsiSeries) throw new Error("rsiSeries is undefined");
+        try {
+            rsiSeries.setData(rsiData);
+        } catch(e) { throw new Error("rsiSeries.setData: " + e.message); }
 
         const macdData = calculateMACD(formattedData);
+        if (!histSeries) throw new Error("histSeries is undefined");
+        if (!macdSeries) throw new Error("macdSeries is undefined");
+        if (!signalSeries) throw new Error("signalSeries is undefined");
         histSeries.setData(macdData.histogram);
         macdSeries.setData(macdData.macdLine);
         signalSeries.setData(macdData.signalLine);
@@ -363,7 +423,7 @@ function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9)
 // بارکردنی سەرەتایی کاتێک پەڕەکە دەبێتەوە
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('price-chart')) {
-        window.loadLiveChart('BTC');
+        window.loadLiveChart('PEPE');
     }
 });
 
@@ -513,6 +573,50 @@ window.generateMemeReversalSignals = function(data, securityData) {
     return markers;
 };
 
+// ئاشکراکردنی جوڵەی نهەنگەکان لەسەر بنەمای بەرزبوونەوەی زەبەلاحی قەبارە (Whale Detection)
+window.generateWhaleMarkers = function(data) {
+    const markers = [];
+    if (!data || data.length < 25) return markers;
+
+    for (let i = 20; i < data.length; i++) {
+        const current = data[i];
+        
+        // تێکڕای قەبارەی ٢٠ مۆمی پێشوو
+        let sumVol = 0;
+        for (let j = 1; j <= 20; j++) {
+            sumVol += data[i - j].volume;
+        }
+        const avgVol = sumVol / 20;
+
+        // ئەگەر قەبارە زۆر بەرز بوو (٤ هێندەی تێکڕا)
+        if (current.volume > (avgVol * 4) && current.volume > 0) {
+            const isGreen = current.close > current.open;
+            const isRed = current.close < current.open;
+            
+            if (isGreen) {
+                markers.push({
+                    time: current.time,
+                    position: 'belowBar',
+                    color: '#00c853',
+                    shape: 'arrowUp',
+                    text: '🐳 BUY',
+                    size: 2
+                });
+            } else if (isRed) {
+                markers.push({
+                    time: current.time,
+                    position: 'aboveBar',
+                    color: '#ff5252',
+                    shape: 'arrowDown',
+                    text: '🐳 SELL',
+                    size: 2
+                });
+            }
+        }
+    }
+    return markers;
+};
+
 // جێبەجێکردنی ئەلگۆریتمەکە و نەخشەسازی لەسەر چارتەکە (Plotting)
 window.applyMemeSignalsToChart = function(securityData) {
     if (!window.chartData || !window.candlestickSeries) return;
@@ -521,10 +625,17 @@ window.applyMemeSignalsToChart = function(securityData) {
     
     // وەرگرتنی ڕیزبەندی نیشانەکان (Markers Array) بە پێی ئەلگۆریتمە نوێیەکە
     const newMarkers = window.generateMemeReversalSignals(data, securityData);
+    
+    // وەرگرتنی نیشانەکانی نهەنگ
+    const whaleMarkers = window.generateWhaleMarkers(data);
 
     // پاراستنی هەر نیشانەیەکی پێشوو (وەک خاڵی کڕینی پۆرتفۆلیۆ) ئەگەر هەبوو
     const existingMarkers = window.customTradeMarkers || []; 
-    window.candlestickSeries.setMarkers([...existingMarkers, ...newMarkers]);
+    
+    // کۆکردنەوە و ڕیزکردنی کاتی بۆ ئەوەی بەیەکەوە پیشان بدرێن
+    const allMarkers = [...existingMarkers, ...newMarkers, ...whaleMarkers].sort((a, b) => a.time - b.time);
+    
+    window.candlestickSeries.setMarkers(allMarkers);
 };
 
 // ڕێکخستنەوەی قەبارەی چارتەکان لە کاتی گۆڕانی قەبارەی پەنجەرە (شاشە)
