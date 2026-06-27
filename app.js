@@ -5,55 +5,7 @@
 
 let priceChart, rsiChart, macdChart, candlestickSeries, smaSeries, bbUpperSeries, bbLowerSeries, volumeSeries, rsiSeries, macdSeries, signalSeries, histSeries, currentWs, geckoRefreshInterval;
 
-window.loadLiveChart = async function(symbol = 'BTC', interval = '1h') {
-    try {
-        // ڕاگرتنی نوێکردنەوەی جێکۆ ئەگەر دراوەکە هی باینانس بوو
-        if (geckoRefreshInterval) {
-            clearInterval(geckoRefreshInterval);
-            geckoRefreshInterval = null;
-        }
 
-        window.currentIsBinance = true;
-        window.currentInterval = interval;
-
-        const binanceSymbol = symbol.toUpperCase().endsWith('USDT') ? symbol.toUpperCase() : `${symbol.toUpperCase()}USDT`;
-        // بەکارهێنانی خاڵی کۆتایی باکئەند لە جیاتی باینانس بۆ چارەسەری CORS
-        const url = `/api/candles?symbol=${binanceSymbol}&interval=${interval}`;
-        
-        const response = await fetch(url);
-        
-        const rawData = await response.json();
-
-        if (!Array.isArray(rawData)) {
-            console.warn("Binance data not available for this symbol.");
-            return false; // نیشانەی ئەوەیە دراوەکە لە باینانس نییە
-        }
-        if (rawData.length === 0) {
-            return false;
-        }
-
-        // فۆرماتکردنی داتاکان بۆ Lightweight Charts
-        const formattedData = rawData.map(d => ({
-            time: d[0] / 1000,
-            open: parseFloat(d[1]),
-            high: parseFloat(d[2]),
-            low: parseFloat(d[3]),
-            close: parseFloat(d[4]),
-            volume: parseFloat(d[5])
-        })).sort((a, b) => a.time - b.time);
-
-        renderChartData(formattedData);
-
-        // بەستنەوە بە WebSocket بۆ نوێکردنەوەی سات بە سات
-        setupRealtimeUpdates(binanceSymbol);
-
-        return true; // سەرکەوتوو بوو لە بارکردنی چارت
-
-    } catch (error) {
-        console.error("Error loading Binance data:", error);
-        return false;
-    }
-};
 
 window.loadDexChart = async function(network, poolAddress, tokenAddress = '', isRefresh = false, interval = '1h') {
     try {
@@ -70,17 +22,30 @@ window.loadDexChart = async function(network, poolAddress, tokenAddress = '', is
         // ❗️ پێویستە دڵنیا بین کە داتا بەردەستە
         if (!rawData || !rawData.data || !rawData.data.attributes || !rawData.data.attributes.ohlcv_list) {
             console.warn("GeckoTerminal data not available for this pool.");
-            alert("هیچ داتایەک لە GeckoTerminal دەستنەکەوت بۆ ئەم دراوە.");
+            if (document.getElementById('placeholderText')) {
+                document.getElementById('placeholderText').innerText = "هیچ داتایەک لە GeckoTerminal دەستنەکەوت بۆ ئەم دراوە.";
+                document.getElementById('placeholderText').style.color = "#ef5350";
+                document.getElementById('placeholderText').style.display = "block";
+                document.getElementById('searchBtn').innerText = "گەڕان";
+                document.getElementById('searchBtn').disabled = false;
+            }
             return false;
         }
 
         const ohlcv = rawData.data.attributes.ohlcv_list;
+        
+        // گۆڕینی نرخ بۆ مارکێت کەپ بۆ ئەوەی چارتەکە زیاتر ڕوون بێت بۆ دراوە میمکۆینەکان
+        let mcapMultiplier = 1;
+        if (window.currentCoinPrice && window.currentCoinMcap && window.currentCoinPrice > 0) {
+            mcapMultiplier = window.currentCoinMcap / window.currentCoinPrice;
+        }
+
         const formattedData = ohlcv.map(d => ({
-            time: d[0], // لە جیگکۆتێرمیناڵ کاتەکە بە چرکەیە
-            open: parseFloat(d[1]),
-            high: parseFloat(d[2]),
-            low: parseFloat(d[3]),
-            close: parseFloat(d[4]),
+            time: Math.floor(d[0]), // لە جیگکۆتێرمیناڵ کاتەکە بە چرکەیە
+            open: parseFloat(d[1]) * mcapMultiplier,
+            high: parseFloat(d[2]) * mcapMultiplier,
+            low: parseFloat(d[3]) * mcapMultiplier,
+            close: parseFloat(d[4]) * mcapMultiplier,
             volume: parseFloat(d[5])
         })).reverse(); // پێچەوانەی دەکەینەوە چونکە جیگکۆتێرمیناڵ نوێترین دەداتە سەرەتا
 
@@ -104,14 +69,19 @@ window.loadDexChart = async function(network, poolAddress, tokenAddress = '', is
 
         if (cleanData.length === 0) {
             console.warn("No candle data found for this pool.");
-            alert("داتای مۆمەکان بەتاڵە پاش فلتەرکردن.");
+            if (document.getElementById('placeholderText')) {
+                document.getElementById('placeholderText').innerText = "داتای مۆمەکان بەتاڵە پاش فلتەرکردن.";
+                document.getElementById('placeholderText').style.color = "#ef5350";
+                document.getElementById('placeholderText').style.display = "block";
+                document.getElementById('searchBtn').innerText = "گەڕان";
+                document.getElementById('searchBtn').disabled = false;
+            }
             return false;
         }
 
         try {
             renderChartData(cleanData, isRefresh);
         } catch (renderError) {
-            alert("هەڵەیەک ڕوویدا لە کێشانی چارتەکە: " + renderError.message);
             console.error("Render Chart Error:", renderError);
             return false;
         }
@@ -140,14 +110,22 @@ window.loadDexChart = async function(network, poolAddress, tokenAddress = '', is
 function renderChartData(formattedData, isRefresh = false) {
     window.chartData = formattedData;
 
-    if (priceChart && (!candlestickSeries || !volumeSeries || !smaSeries || !bbUpperSeries || !rsiSeries || !macdSeries)) {
-        console.warn("Some chart components are missing. Recreating charts...");
+    if (priceChart && (!isRefresh || !candlestickSeries || !volumeSeries || !smaSeries || !bbUpperSeries || !rsiSeries || !macdSeries)) {
         document.getElementById('price-chart').innerHTML = '';
         if (document.getElementById('rsi-chart')) document.getElementById('rsi-chart').innerHTML = '';
         if (document.getElementById('macd-chart')) document.getElementById('macd-chart').innerHTML = '';
         priceChart = null;
         rsiChart = null;
         macdChart = null;
+        candlestickSeries = null;
+        volumeSeries = null;
+        smaSeries = null;
+        bbUpperSeries = null;
+        bbLowerSeries = null;
+        rsiSeries = null;
+        histSeries = null;
+        macdSeries = null;
+        signalSeries = null;
     }
 
     const isLightMode = document.body.classList.contains('light-mode');
@@ -159,6 +137,14 @@ function renderChartData(formattedData, isRefresh = false) {
         layout: { background: { color: bg }, textColor: text },
         grid: { vertLines: { color: grid }, horzLines: { color: grid } },
         timeScale: { borderColor: grid, timeVisible: true },
+        watermark: {
+            color: isLightMode ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)',
+            visible: true,
+            text: 'Garany AI',
+            fontSize: 72,
+            horzAlign: 'center',
+            vertAlign: 'center',
+        },
         width: document.getElementById('price-chart').clientWidth || 800,
         height: 500
     };
@@ -169,15 +155,64 @@ function renderChartData(formattedData, isRefresh = false) {
         const macdContainer = document.getElementById('macd-chart');
         
         priceChart = LightweightCharts.createChart(priceContainer, chartOptions);
+        
         candlestickSeries = priceChart.addCandlestickSeries({
             upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
-            wickUpColor: '#26a69a', wickDownColor: '#ef5350'
+            wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+            priceFormat: {
+                type: 'custom',
+                formatter: function(price) {
+                    if (price >= 1e9) return (price / 1e9).toFixed(2) + 'B';
+                    if (price >= 1e6) return (price / 1e6).toFixed(2) + 'M';
+                    if (price >= 1e3) return (price / 1e3).toFixed(2) + 'K';
+                    if (price > 0 && price < 0.01) return price.toExponential(2);
+                    return price.toFixed(2);
+                }
+            }
         });
         window.candlestickSeries = candlestickSeries;
         
-            smaSeries = priceChart.addLineSeries({ color: '#2962ff', lineWidth: 2, title: 'SMA 20' });
-            bbUpperSeries = priceChart.addLineSeries({ color: 'rgba(41, 98, 255, 0.4)', lineWidth: 1, title: 'BB Upper', lineStyle: 2 });
-            bbLowerSeries = priceChart.addLineSeries({ color: 'rgba(41, 98, 255, 0.4)', lineWidth: 1, title: 'BB Lower', lineStyle: 2 });
+        smaSeries = priceChart.addLineSeries({ color: '#2962ff', lineWidth: 2, title: 'SMA 20' });
+        bbUpperSeries = priceChart.addLineSeries({ color: 'rgba(41, 98, 255, 0.4)', lineWidth: 1, title: 'BB Upper', lineStyle: 2 });
+        bbLowerSeries = priceChart.addLineSeries({ color: 'rgba(41, 98, 255, 0.4)', lineWidth: 1, title: 'BB Lower', lineStyle: 2 });
+
+        // دروستکردنی لێجێندی دینامیکی (Legend)
+        const legend = document.createElement('div');
+        legend.id = 'chart-legend';
+        legend.style = `position: absolute; left: 12px; top: 12px; z-index: 2; font-size: 13px; font-family: 'Inter', sans-serif; color: ${text}; padding: 10px; border-radius: 8px; background: ${isLightMode ? 'rgba(255,255,255,0.7)' : 'rgba(19,23,34,0.7)'}; backdrop-filter: blur(8px); border: 1px solid rgba(128,128,128,0.2); pointer-events: none;`;
+        priceContainer.style.position = 'relative';
+        priceContainer.appendChild(legend);
+        
+        function formatNum(num) {
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+            if (num > 0 && num < 0.01) return num.toExponential(2);
+            return num.toFixed(2);
+        }
+
+        priceChart.subscribeCrosshairMove(param => {
+            if (param.time) {
+                const data = param.seriesData.get(candlestickSeries);
+                const vol = param.seriesData.get(volumeSeries);
+                if (data) {
+                    const oColor = data.open > data.close ? '#ef5350' : '#26a69a';
+                    const diff = data.close - data.open;
+                    const diffPct = ((diff / data.open) * 100).toFixed(2);
+                    legend.innerHTML = `
+                        <div style="font-weight: bold; font-size: 15px; margin-bottom: 4px; color: #2962ff;">${window.lastSearchedSymbol || 'Coin'}</div>
+                        <div style="display: grid; grid-template-columns: auto auto; gap: 4px 12px;">
+                            <span>Open: <span style="color: ${oColor}; font-weight: bold;">${formatNum(data.open)}</span></span>
+                            <span>High: <span style="font-weight: bold;">${formatNum(data.high)}</span></span>
+                            <span>Low: <span style="font-weight: bold;">${formatNum(data.low)}</span></span>
+                            <span>Close: <span style="color: ${oColor}; font-weight: bold;">${formatNum(data.close)}</span> <span style="font-size: 11px;">(${diffPct}%)</span></span>
+                        </div>
+                    `;
+                }
+            } else {
+                legend.innerHTML = `<div style="font-weight: bold; font-size: 15px; color: #2962ff;">${window.lastSearchedSymbol || 'Coin'}</div><div style="color: gray; margin-top: 4px;">ماوسەکەت بەرەو چارتەکە بڕۆ بۆ بینینی داتا</div>`;
+            }
+        });
             
             // زیادکردنی هێڵکاری ڤۆلیۆم وەک چینی خوارەوەی چارتی مۆمەکان
             volumeSeries = priceChart.addHistogramSeries({
@@ -226,9 +261,11 @@ function renderChartData(formattedData, isRefresh = false) {
         if (!candlestickSeries) throw new Error("candlestickSeries is undefined");
         
         try {
-            // زۆر گرنگە: پاککردنەوەی نیشانەکانی پێشوو پێش تێکردنی داتای نوێ
-            // چونکە ئەگەر نیشانەی کۆن بمێنێت و کاتەکەی لە داتا نوێیەکەدا نەبێت، کراش دەکات و دەڵێت Value is null
-            candlestickSeries.setMarkers([]);
+            // زۆر گرنگە: پاککردنەوەی نیشانەکانی پێشوو پێش تێکردنی داتای نوێ لە کاتی ڕیفرێشدا
+            // ئەگەر چارتەکە نوێ بێت، نابێت setMarkers پێش setData بانگ بکرێت چونکە دەبێتە هۆی کراشی Value is null
+            if (isRefresh) {
+                candlestickSeries.setMarkers([]);
+            }
             candlestickSeries.setData(formattedData);
         } catch(e) { throw new Error("candlestickSeries.setData: " + e.message); }
 
@@ -299,48 +336,6 @@ window.updateChartTheme = function(isLightMode) {
     if (rsiChart) rsiChart.applyOptions(themeOptions);
     if (macdChart) macdChart.applyOptions(themeOptions);
 };
-
-function setupRealtimeUpdates(symbol) {
-    if (currentWs) currentWs.close();
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    currentWs = new WebSocket(`${protocol}//${window.location.host}`);
-
-    currentWs.onopen = () => {
-        currentWs.send(JSON.stringify({ type: 'SUBSCRIBE', symbol: symbol }));
-    };
-
-    currentWs.onclose = () => {
-        console.log("WebSocket disconnected. Reconnecting in 3 seconds...");
-        setTimeout(() => {
-            if (window.currentIsBinance) {
-                setupRealtimeUpdates(symbol);
-            }
-        }, 3000);
-    };
-
-    currentWs.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.e === 'kline') {
-            const k = data.k;
-            const candle = {
-                time: k.t / 1000,
-                open: parseFloat(k.o),
-                high: parseFloat(k.h),
-                low: parseFloat(k.l),
-                close: parseFloat(k.c)
-            };
-            candlestickSeries.update(candle);
-            
-            // نوێکردنەوەی ڤۆلیۆم ڕاستەوخۆ بە WebSocket
-            volumeSeries.update({
-                time: k.t / 1000,
-                value: parseFloat(k.v),
-                color: parseFloat(k.c) >= parseFloat(k.o) ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
-            });
-        }
-    };
-}
 
 function calculateSMA(data, period) {
     const sma = [];
@@ -422,9 +417,7 @@ function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9)
 
 // بارکردنی سەرەتایی کاتێک پەڕەکە دەبێتەوە
 document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('price-chart')) {
-        window.loadLiveChart('PEPE');
-    }
+    // چاوەڕوانی گەڕانی بەکارهێنەر دەکەین
 });
 
 // =========================================================================
@@ -617,12 +610,86 @@ window.generateWhaleMarkers = function(data) {
     return markers;
 };
 
+// ==========================================
+// سیستەمی ئاگادارکردنەوەی دەنگی و بینراو (Smart Alerts)
+// ==========================================
+window.playAlertSound = function(type) {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        if (type === 'success') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+            osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.5);
+        } else if (type === 'danger') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, ctx.currentTime);
+            osc.frequency.setValueAtTime(200, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.5);
+        } else {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, ctx.currentTime);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.3);
+        }
+    } catch(e) { console.error(e); }
+};
+
+window.showToastAlert = function(message, type = 'info') {
+    let container = document.getElementById('garany-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'garany-toast-container';
+        container.style = 'position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    const bgColor = type === 'success' ? '#00e676' : type === 'danger' ? '#ff1744' : '#2962ff';
+    toast.style = `background: ${bgColor}; color: white; padding: 15px 20px; border-radius: 8px; font-weight: bold; font-family: 'Inter', sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transform: translateX(100%); transition: transform 0.3s ease-out; display: flex; align-items: center; gap: 10px; font-size: 14px;`;
+    
+    const icon = type === 'success' ? '✅' : type === 'danger' ? '🚨' : 'ℹ️';
+    toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+    container.appendChild(toast);
+    
+    setTimeout(() => { toast.style.transform = 'translateX(0)'; }, 10);
+    window.playAlertSound(type);
+    
+    setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+};
+// ==========================================
+
 // جێبەجێکردنی ئەلگۆریتمەکە و نەخشەسازی لەسەر چارتەکە (Plotting)
 window.applyMemeSignalsToChart = function(securityData) {
     if (!window.chartData || !window.candlestickSeries) return;
 
     const data = window.chartData;
     
+    // پاککردنەوەی هێڵەکانی پێشوو ئەگەر هەبن (TP, SL, Support, Resistance)
+    if (window.tpLine) { window.candlestickSeries.removePriceLine(window.tpLine); window.tpLine = null; }
+    if (window.slLine) { window.candlestickSeries.removePriceLine(window.slLine); window.slLine = null; }
+    if (window.resLine) { window.candlestickSeries.removePriceLine(window.resLine); window.resLine = null; }
+    if (window.supLine) { window.candlestickSeries.removePriceLine(window.supLine); window.supLine = null; }
+
     // وەرگرتنی ڕیزبەندی نیشانەکان (Markers Array) بە پێی ئەلگۆریتمە نوێیەکە
     const newMarkers = window.generateMemeReversalSignals(data, securityData);
     
@@ -636,6 +703,131 @@ window.applyMemeSignalsToChart = function(securityData) {
     const allMarkers = [...existingMarkers, ...newMarkers, ...whaleMarkers].sort((a, b) => a.time - b.time);
     
     window.candlestickSeries.setMarkers(allMarkers);
+
+    // --- دانانی هێڵەکانی Take Profit و Stop Loss ---
+    // دۆزینەوەی کۆتا سیگناڵی کڕین بۆ کێشانی هێڵەکان
+    const lastBuySignal = newMarkers.slice().reverse().find(m => m.shape === 'arrowUp' && !m.text.includes('WHALE'));
+    if (lastBuySignal) {
+        const entryCandle = data.find(d => d.time === lastBuySignal.time);
+        if (entryCandle) {
+            const entryPrice = entryCandle.close;
+            // دۆزینەوەی جیاوازی جووڵەی نرخی مۆمەکانی پێشوو (Volatility)
+            let recentHigh = entryPrice;
+            let recentLow = entryPrice;
+            let idx = data.indexOf(entryCandle);
+            let lookbackRange = Math.max(0, idx - 15);
+            for (let i = lookbackRange; i <= idx; i++) {
+                if (data[i].high > recentHigh) recentHigh = data[i].high;
+                if (data[i].low < recentLow) recentLow = data[i].low;
+            }
+            
+            // دیاریکردنی ئامانجەکان بە پشت بەستن بە جووڵەی بازار (Volatility)
+            const atrEstimate = (recentHigh - recentLow) || (entryPrice * 0.05);
+            const targetTP = entryPrice + (atrEstimate * 2.0); // قازانجە پێشبینیکراوەکە
+            const targetSL = Math.max(0, entryPrice - (atrEstimate * 1.0)); // زەرەرە ڕێگەپێدراوەکە
+
+            window.tpTarget = targetTP;
+            window.slTarget = targetSL;
+
+            // کێشانی هێڵی قازانج (Take Profit)
+            window.tpLine = window.candlestickSeries.createPriceLine({
+                price: targetTP,
+                color: '#00e676', // سەوزی کڕاوە
+                lineWidth: 2,
+                lineStyle: 1, // Dashed
+                axisLabelVisible: true,
+                title: 'TP قازانج',
+            });
+
+            // کێشانی هێڵی زەرەر (Stop Loss)
+            window.slLine = window.candlestickSeries.createPriceLine({
+                price: targetSL,
+                color: '#ff1744', // سووری کڕاوە
+                lineWidth: 2,
+                lineStyle: 1, // Dashed
+                axisLabelVisible: true,
+                title: 'SL زەرەر',
+            });
+        }
+    }
+
+    // --- دانانی هێڵەکانی پاڵپشتی و بەرگری (Support & Resistance) ---
+    // دۆزینەوەی بەرزترین و نزمترین نرخی کۆتا 100 مۆم
+    if (data.length > 30) {
+        let maxHigh = data[data.length - 1].high;
+        let minLow = data[data.length - 1].low;
+        const lookback = Math.min(data.length, 100);
+        for (let i = data.length - lookback; i < data.length; i++) {
+            if (data[i].high > maxHigh) maxHigh = data[i].high;
+            if (data[i].low < minLow) minLow = data[i].low;
+        }
+
+        // هێڵی بەرگری (Resistance) لە بەرزترین خاڵ
+        window.resTarget = maxHigh;
+        window.resLine = window.candlestickSeries.createPriceLine({
+            price: maxHigh,
+            color: 'rgba(41, 98, 255, 0.6)', // شین
+            lineWidth: 2,
+            lineStyle: 2, // Dotted
+            axisLabelVisible: true,
+            title: 'بەرگری',
+        });
+
+        // هێڵی پاڵپشتی (Support) لە نزمترین خاڵ
+        window.supTarget = minLow;
+        window.supLine = window.candlestickSeries.createPriceLine({
+            price: minLow,
+            color: 'rgba(255, 152, 0, 0.6)', // پرتەقاڵی
+            lineWidth: 2,
+            lineStyle: 2, // Dotted
+            axisLabelVisible: true,
+            title: 'پاڵپشتی',
+        });
+    }
+
+    // --- سیستەمی ئاگادارکردنەوەی ڕاستەوخۆ (Real-time Alerts) ---
+    if (data.length > 0) {
+        const lastCandle = data[data.length - 1];
+        
+        // 1. ئاگادارکردنەوەی نەهەنگەکان
+        const latestWhale = whaleMarkers.find(m => m.time === lastCandle.time);
+        if (latestWhale) {
+            if (window.lastAlertedWhaleTime !== latestWhale.time) {
+                window.lastAlertedWhaleTime = latestWhale.time;
+                const isBuy = latestWhale.shape === 'arrowUp';
+                window.showToastAlert(
+                    isBuy ? `نەهەنگێکی گەورە دراوەکەی کڕی!` : `نەهەنگێکی گەورە دراوەکەی فرۆشت!`,
+                    isBuy ? 'success' : 'danger'
+                );
+            }
+        }
+        
+        // 2. ئاگادارکردنەوەی بەرکەوتنی هێڵەکان (TP / SL / Res / Sup)
+        if (window.tpTarget && lastCandle.high >= window.tpTarget) {
+            if (window.lastAlertedTPTime !== lastCandle.time) {
+                window.lastAlertedTPTime = lastCandle.time;
+                window.showToastAlert(`ئامانجی قازانج (TP) پێکرا! کاتی فرۆشتنە و وەرگرتنی قازانجە.`, 'success');
+            }
+        }
+        else if (window.slTarget && lastCandle.low <= window.slTarget) {
+            if (window.lastAlertedSLTime !== lastCandle.time) {
+                window.lastAlertedSLTime = lastCandle.time;
+                window.showToastAlert(`هێڵی زەرەر (SL) پێکرا! دراوەکە دابەزینی زۆری کردووە.`, 'danger');
+            }
+        }
+        else if (window.resTarget && lastCandle.high >= window.resTarget && lastCandle.close < window.resTarget) {
+            if (window.lastAlertedResTime !== lastCandle.time) {
+                window.lastAlertedResTime = lastCandle.time;
+                window.showToastAlert(`نرخەکە گەیشتە هێڵی بەرگری (سەقف)! لێرەدا قورسە بەرزبێتەوە.`, 'info');
+            }
+        }
+        else if (window.supTarget && lastCandle.low <= window.supTarget && lastCandle.close > window.supTarget) {
+            if (window.lastAlertedSupTime !== lastCandle.time) {
+                window.lastAlertedSupTime = lastCandle.time;
+                window.showToastAlert(`نرخەکە گەیشتە هێڵی پاڵپشتی (زەوی)! ئەگەری بەرزبوونەوەی هەیە.`, 'info');
+            }
+        }
+    }
 };
 
 // ڕێکخستنەوەی قەبارەی چارتەکان لە کاتی گۆڕانی قەبارەی پەنجەرە (شاشە)

@@ -33,6 +33,7 @@
 
         <div style="position: relative; text-align: center;">
             <button id="themeToggle" onclick="toggleTheme()" class="theme-btn"></button>
+            <button onclick="document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'; window.location.href='/login.html';" style="position: absolute; left: 10px; top: 10px; background: #ef5350; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-family: inherit;"><i class="fas fa-sign-out-alt"></i> چوونەدەرەوە</button>
             <h1>ماڵپەڕی پێشکەوتووی شیکاری دراوەکان</h1>
             <p class="subtitle">کۆدی کانتراکت (Contract) لێرە دابنێ بۆ بینی چارتەکەی</p>
         </div>
@@ -208,6 +209,17 @@
                 <div id="price-chart" style="width: 100%; height: 500px; display: block;"></div>
                 <div id="rsi-chart" style="width: 100%; height: 150px; display: block;"></div>
                 <div id="macd-chart" style="width: 100%; height: 150px; display: block;"></div>
+                
+                <!-- ڕێبەری هێڵەکانی چارت -->
+                <div id="chart-lines-guide" style="display: none; background: rgba(41, 98, 255, 0.05); border: 1px dashed rgba(41, 98, 255, 0.3); padding: 15px; border-radius: 10px; margin-top: 15px; font-size: 0.85rem; color: var(--text-main); line-height: 1.6;">
+                    <div style="font-weight: bold; margin-bottom: 8px; color: var(--text-heading);"><i class="fas fa-info-circle"></i> ڕێبەری هێڵەکانی سەر چارتەکە (AI Lines Guide):</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <div><span style="display:inline-block; width:15px; height:3px; background:#00e676; margin-left:5px;"></span><strong>سەوز (قازانج TP):</strong> گەیشتە ئێرە بیفرۆشە و قازانجت بگرە.</div>
+                        <div><span style="display:inline-block; width:15px; height:3px; background:#ff1744; margin-left:5px;"></span><strong>سوور (زەرەر SL):</strong> گەیشتە ئێرە خێرا بیفرۆشە با زەرەری زیاتر نەکەیت.</div>
+                        <div><span style="display:inline-block; width:15px; height:0px; border-top:3px dotted rgba(41, 98, 255, 0.8); margin-left:5px;"></span><strong>شین (بەرگری Res):</strong> سەقفی دراوەکە، لێرەدا تووشی بەربەست دەبێت.</div>
+                        <div><span style="display:inline-block; width:15px; height:0px; border-top:3px dotted rgba(255, 152, 0, 0.8); margin-left:5px;"></span><strong>پرتەقاڵی (پاڵپشتی Sup):</strong> زەوی دراوەکە، لێرەوە هەڵدەبەزێتەوە و باشترین کاتی کڕینە.</div>
+                    </div>
+                </div>
             </div>
 
             <!-- لای ڕاست: شیکاری تەکنیکی و مارکێت -->
@@ -248,7 +260,7 @@
 
     <!-- بارکردنی کتێبخانەی Lightweight Charts و فایلی لۆجیک -->
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=22"></script>
     <script>
         // بەڕێوەبردنی دۆخی ڕووناکی و تاریكی (Dark/Light Mode)
         let isLightMode = localStorage.getItem('theme') === 'light';
@@ -1183,7 +1195,10 @@
             const contractAddress = document.getElementById("contractInput").value.trim();
 
             if (contractAddress === "") {
-                alert("تکایە سەرەتا کانتراکتێک بنووسە!");
+                const placeholder = document.getElementById('placeholderText');
+                placeholder.innerText = "تکایە سەرەتا کانتراکتێک بنووسە!";
+                placeholder.style.color = "#ef5350";
+                placeholder.style.display = "block";
                 return;
             }
 
@@ -1245,15 +1260,16 @@
                     const liquidity = pair.liquidity ? pair.liquidity.usd : 0;
                     const mcapValid = pair.fdv || pair.marketCap || 0;
 
-                    // ڕێگریکردن لە گەڕانی دراوە سەرەکییەکان لەم پەڕەیەدا
+                    // ڕێگریکردن لە گەڕانی دراوە سەرەکییەکان (ماڵپەڕەکە تەنها بۆ میمکۆینە)
                     const mainCoins = ["BTC", "ETH", "USDT", "BNB", "SOL", "USDC", "XRP", "DOGE", "TON", "ADA", "SHIB", "AVAX", "TRX", "DOT", "BCH", "LINK", "MATIC", "NEAR", "LTC", "ICP", "UNI", "APT", "DAI", "STX", "FIL", "ARB", "RNDR", "ATOM", "IMX", "INJ", "MKR", "VET", "OP", "GRT", "KAS", "MNT", "LDO", "THETA", "TIA", "FET", "XMR", "ETC", "ALGO", "HBAR", "RUNE", "QNT", "LUNC", "WIF", "PEPE", "FLOKI", "BONK", "AAVE", "SUI", "SEI", "EGLD", "FTM", "SAND", "MANA", "AXS", "GALA", "EOS", "CHZ", "SNX", "CRO", "CAKE", "BGB", "GMX", "CORE", "AERO", "MINA", "BLUR", "STRK", "NEO", "KAVA", "ILV", "IOTA", "ZIL", "TWT", "ROSE", "LRC", "GNO", "ZRX", "BAT", "ENJ", "1INCH", "COMP", "BAL", "SUSHI", "CRV", "YFI", "WETH", "WBTC", "BOME", "MEME", "ORDI", "SATS", "POL", "JUP", "PYTH", "ONDO", "PENDLE", "ENA", "DYM", "ALT", "MANTA", "PIXEL", "ETHFI", "W", "TNSR", "OMNI", "REZ", "NOT", "IO", "ZRO", "BLAST"];
                     const isMainSymbol = baseSymbol && mainCoins.includes(baseSymbol.toUpperCase());
 
                     if (isMainSymbol || mcapValid > 200000000 || liquidity > 5000000) {
-                        alert("ئەمە دراوێکی سەرەکییە یان قەبارەی زۆر گەورەیە! تکایە بچۆ بۆ بەشی 'دراوە سەرەکییەکان' بۆ شیکاری.");
+                        placeholder.innerText = "ئەمە دراوێکی سەرەکییە یان قەبارەی زۆر گەورەیە! ئەم ماڵپەڕە تایبەتە بە شیکاری میمکۆین و دراوە نوێیەکان.";
+                        placeholder.style.color = "#ffb74d";
+                        placeholder.style.display = "block";
                         searchBtn.innerText = "گەڕان";
                         searchBtn.disabled = false;
-                        placeholder.style.display = "none";
                         return;
                     }
 
@@ -1302,37 +1318,27 @@
                     if (tradeResultEl) tradeResultEl.style.display = 'none';
                     chartContainer.style.justifyContent = "flex-start";
 
+                    // چارتی TradingView بەتەواوی لادرا بەپێی داواکاری
+                    dexChartDiv.innerHTML = "";
+                    dexChartDiv.style.display = "none";
+
+                    // پیشاندانی چارتی Dex لە خوارەوە بە هەمان قەبارە
                     priceChartDiv.style.display = "block";
                     rsiChartDiv.style.display = "block";
                     macdChartDiv.style.display = "block";
-                    dexChartDiv.style.display = "none";
-
                     priceChartDiv.style.visibility = "visible";
                     rsiChartDiv.style.visibility = "visible";
                     macdChartDiv.style.visibility = "visible";
+                    const chartGuide = document.getElementById('chart-lines-guide');
+                    if(chartGuide) chartGuide.style.display = "block";
 
-                    let isBinanceCoin = false;
-                    if (window.loadLiveChart) {
-                        isBinanceCoin = await window.loadLiveChart(baseSymbol);
-                    }
-
-                    if (!isBinanceCoin) {
-                        // گەڕان لە ناو GeckoTerminal ئەگەر باینانس شکستی هێنا (پاسکردنی کانتراکتی ڕاستەقینە بۆ فالباك)
-                        let isDexLoaded = false;
-                        if (window.loadDexChart) {
-                            isDexLoaded = await window.loadDexChart(chainId, pair.pairAddress, tokenAddress);
-                        }
-
-                        // ئەگەر لە جیگکۆتێرمیناڵیش نەدۆزرایەوە (وەک دواین بژاردە)
-                        if (!isDexLoaded) {
-                            priceChartDiv.style.display = "none";
-                            rsiChartDiv.style.display = "none";
-                            macdChartDiv.style.display = "none";
-                            dexChartDiv.innerHTML = `<iframe src="${newChartUrl}" width="100%" height="100%" frameborder="0"></iframe>`;
-                            dexChartDiv.style.display = "block";
+                    if (window.loadDexChart) {
+                        try {
+                            await window.loadDexChart(chainId, pair.pairAddress, tokenAddress);
+                        } catch (e) {
+                            console.error("Dex chart fallback error:", e);
                         }
                     }
-
                     // پیشاندانی شیکاری تەکنیکی و هەواڵەکان دەستبەجێ بەبێ چاوەڕوانی GoPlus
                     updateTechnicalAnalysis(baseSymbol);
                     updateMemeNews(baseSymbol, pair);
@@ -1361,7 +1367,75 @@
                     });
 
                 } else {
-                    placeholder.innerText = "ببوورە، هیچ دراوێک بەم کانتراکتە یان سیمبولە نەدۆزرایەوە.";
+                    // Fallback: Try GeckoTerminal API if DexScreener search fails
+                    try {
+                        const gtResponse = await fetch(`https://api.geckoterminal.com/api/v2/search/pools?query=${contractAddress}`);
+                        const gtData = await gtResponse.json();
+                        
+                        if (gtData && gtData.data && gtData.data.length > 0) {
+                            const pool = gtData.data[0];
+                            const network = pool.id.split('_')[0];
+                            const poolAddress = pool.attributes.address;
+                            const tokenAddress = pool.attributes.base_token_address || contractAddress;
+                            
+                            window.currentCoinPrice = parseFloat(pool.attributes.base_token_price_usd) || 0;
+                            window.currentCoinMcap = parseFloat(pool.attributes.fdv_usd) || parseFloat(pool.attributes.market_cap_usd) || 0;
+                            window.lastSearchedSymbol = pool.attributes.name.split(' / ')[0].toUpperCase();
+                            
+                            document.title = `${window.lastSearchedSymbol} | شیکاری پێشکەوتوو`;
+                            placeholder.style.display = "none";
+                            leftPlaceholder.style.display = "none";
+                            rightPlaceholder.style.display = "none";
+                            
+                            document.getElementById('coinName').innerText = window.lastSearchedSymbol;
+                            document.getElementById('coinSymbol').innerText = window.lastSearchedSymbol;
+                            document.getElementById('coinPrice').innerText = window.currentCoinPrice > 0 ? '$' + window.currentCoinPrice.toFixed(window.currentCoinPrice < 0.01 ? 6 : 2) : "..."; 
+                            document.getElementById('priceChange').innerText = ""; 
+                            document.getElementById('coinVolume').innerText = ""; 
+                            document.getElementById('coinMarketCap').innerText = window.currentCoinMcap > 0 ? '$' + window.currentCoinMcap.toLocaleString() : "..."; 
+                            
+                            priceChartDiv.style.display = "block";
+                            rsiChartDiv.style.display = "block";
+                            macdChartDiv.style.display = "block";
+                            
+                            dexChartDiv.innerHTML = "";
+                            dexChartDiv.style.display = "none";
+                            
+                            priceChartDiv.style.visibility = "visible";
+                            rsiChartDiv.style.visibility = "visible";
+                            macdChartDiv.style.visibility = "visible";
+                            const chartGuideFallback = document.getElementById('chart-lines-guide');
+                            if(chartGuideFallback) chartGuideFallback.style.display = "block";
+
+                            document.getElementById('techPanel').style.display = 'flex';
+                            document.getElementById('newsPanel').style.display = 'flex';
+                            
+                            const tradeResultEl = document.getElementById('tradeResult');
+                            if (tradeResultEl) tradeResultEl.style.display = 'none';
+                            chartContainer.style.justifyContent = "flex-start";
+                            
+                            if (window.loadDexChart) {
+                                await window.loadDexChart(network, poolAddress, tokenAddress);
+                                updateTechnicalAnalysis(window.lastSearchedSymbol);
+                                updateMemeNews(window.lastSearchedSymbol, null);
+                            }
+                            
+                            document.getElementById("analysisContent").innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">زانیاری ئەمنی بەردەست نییە.</div>';
+                            document.getElementById("ownerContent").innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">زانیاری بەردەست نییە.</div>';
+                            if (document.getElementById("whaleContent")) {
+                                document.getElementById("whaleContent").innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">زانیاری بەردەست نییە.</div>';
+                            }
+                            generateSmartSignal(null, null);
+
+                        } else {
+                            placeholder.innerText = "ببوورە، هیچ دراوێک بەم کانتراکتە یان ناوە نەدۆزرایەوە.";
+                            placeholder.style.display = "block";
+                        }
+                    } catch (e) {
+                        console.error("GeckoTerminal fallback error:", e);
+                        placeholder.innerText = "ببوورە، هیچ دراوێک بەم کانتراکتە یان ناوە نەدۆزرایەوە.";
+                        placeholder.style.display = "block";
+                    }
                 }
             } catch (error) {
                 console.error("Error:", error);
